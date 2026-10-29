@@ -17,6 +17,7 @@ export default function ConfirmPage() {
   const [ready, setReady] = useState(false);
   const [picks, setPicks] = useState<string[]>([]);
   const [positionNames, setPositionNames] = useState<string[]>([]);
+  const [backHref, setBackHref] = useState('/pick');
 
   useEffect(() => {
     const s = loadSession();
@@ -26,6 +27,7 @@ export default function ConfirmPage() {
     }
     const spread = getSpread(s.level, s.category as 'past-present-future');
     setPicks(s.picks);
+    setBackHref(`/pick?level=${s.level}&category=${s.category}`);
     setPositionNames(
       s.picks.map((_, i) => {
         const p = spread.positions[Math.min(i, spread.positions.length - 1)];
@@ -71,7 +73,7 @@ export default function ConfirmPage() {
 
       <div className="mt-12 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
         <Link
-          href="/pick"
+          href={backHref}
           className="inline-flex items-center gap-2 rounded-full border border-white/15 px-6 py-3 text-sm text-moondim transition-colors hover:border-aura-violet/40 hover:text-moon"
         >
           <AuraIcon name="arrowLeft" className="h-4 w-4" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
@@ -27,13 +27,17 @@ function PickPageInner() {
   const spread = useMemo(() => getSpread(level, category as SpreadCategory), [level, category]);
   const cardCount = spread.cardCount;
 
-  // Shuffle once on mount: seeded deck order + reversed flags for every card.
+  // Shuffle: seeded deck order + reversed flags for every card.
   const [deck, setDeck] = useState<CardData[] | null>(null);
   const [reversedMap, setReversedMap] = useState<Record<string, boolean>>({});
   const [seed, setSeed] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
+  const [shuffling, setShuffling] = useState(false);
+  const timers = useRef<number[]>([]);
 
-  const shuffle = () => {
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+  const computeShuffle = () => {
     const s = Date.now() + Math.floor(Math.random() * 1e9);
     const rng = mulberry32(s);
     const pool = [...ALL_CARDS];
@@ -43,15 +47,37 @@ function PickPageInner() {
     }
     const rev: Record<string, boolean> = {};
     for (const c of pool) rev[c.id] = rng() < REVERSED_PROBABILITY;
+    return { s, pool, rev };
+  };
+
+  // Initial deal on mount (no animation).
+  useEffect(() => {
+    const { s, pool, rev } = computeShuffle();
     setSeed(s);
     setDeck(pool);
     setReversedMap(rev);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Shuffle with a real visible riffle: cards leap and twirl in a wave,
+  // then glide into their new shuffled positions (layout animation).
+  const shuffle = () => {
+    if (shuffling || !deck) return;
+    const { s, pool, rev } = computeShuffle();
+    setShuffling(true);
     setSelected([]);
+    timers.current.push(
+      window.setTimeout(() => {
+        setSeed(s);
+        setDeck(pool);
+        setReversedMap(rev);
+      }, 420),
+    );
+    timers.current.push(window.setTimeout(() => setShuffling(false), 1100));
   };
 
-  useEffect(shuffle, []);
-
   const toggle = (id: string) => {
+    if (shuffling) return;
     setSelected((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
       if (prev.length >= cardCount) return prev;
@@ -87,24 +113,54 @@ function PickPageInner() {
         <p className="mt-2 text-xs text-moonfaint">{t('pick.hint')}</p>
         <button
           onClick={shuffle}
-          className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm text-moondim transition-colors hover:border-aura-violet/40 hover:text-moon"
+          disabled={shuffling}
+          className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm text-moondim transition-colors hover:border-aura-violet/40 hover:text-moon disabled:cursor-wait disabled:opacity-60"
         >
-          <AuraIcon name="shuffle" className="h-4 w-4" />
+          <motion.span
+            animate={shuffling ? { rotate: 360 } : { rotate: 0 }}
+            transition={shuffling ? { duration: 0.9, ease: 'easeInOut' } : { duration: 0.2 }}
+            className="inline-flex"
+          >
+            <AuraIcon name="shuffle" className="h-4 w-4" />
+          </motion.span>
           {t('pick.shuffle')}
         </button>
       </motion.div>
 
       {/* Card grid — face down, generous touch targets */}
-      <div className="mt-8 grid grid-cols-4 gap-3 sm:grid-cols-6 sm:gap-4 lg:grid-cols-8">
+      <div
+        className={`mt-8 grid grid-cols-4 gap-3 sm:grid-cols-6 sm:gap-4 lg:grid-cols-8 ${
+          shuffling ? 'pointer-events-none' : ''
+        }`}
+      >
         {deck.map((card, i) => {
           const selIdx = selected.indexOf(card.id);
           const isSel = selIdx >= 0;
+          const tilt = ((i * 53) % 13) - 6;
           return (
             <motion.button
               key={card.id}
+              layout
               initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: isSel ? -10 : 0 }}
-              transition={{ duration: 0.35, delay: Math.min(i * 0.012, 0.6) }}
+              animate={
+                shuffling
+                  ? { opacity: 1, y: [0, -56, 0], rotate: [0, tilt, 0], scale: [1, 1.06, 1] }
+                  : { opacity: 1, y: isSel ? -10 : 0, rotate: 0, scale: 1 }
+              }
+              transition={
+                shuffling
+                  ? {
+                      duration: 0.9,
+                      delay: (i % 12) * 0.028,
+                      ease: 'easeInOut',
+                      layout: { type: 'spring', stiffness: 320, damping: 34 },
+                    }
+                  : {
+                      duration: 0.35,
+                      delay: Math.min(i * 0.012, 0.6),
+                      layout: { type: 'spring', stiffness: 320, damping: 34 },
+                    }
+              }
               onClick={() => toggle(card.id)}
               aria-pressed={isSel}
               aria-label={isSel ? `${t('pick.selected', { selected: selIdx + 1, count: cardCount })}` : t('pick.title')}
