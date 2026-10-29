@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Prompt", "IBM Plex Sans Thai", sans-serif;
+  --font-body: "IBM Plex Sans Thai", "Prompt", sans-serif;
+
+  /* Midnight indigo base */
+  --color-void: #05071a;
+  --color-abyss: #0a0d26;
+  --color-mist: #131a3f;
+  --color-haze: #1d2560;
+
+  /* Aura accents */
+  --color-aura-violet: #a78bfa;
+  --color-aura-teal: #5eead4;
+  --color-aura-rose: #f0a6c8;
+  --color-aura-gold: #e9c886;
+
+  /* Text */
+  --color-moon: #eceefb;
+  --color-moondim: #a2a9d1;
+  --color-moonfaint: #6b74a8;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-void);
+  color: var(--color-moon);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Aurora background wash */
+.aurora-bg {
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(167, 139, 250, 0.14), transparent),
+    radial-gradient(ellipse 70% 45% at 85% 15%, rgba(94, 234, 212, 0.08), transparent),
+    radial-gradient(ellipse 90% 60% at 50% 110%, rgba(240, 166, 200, 0.07), transparent),
+    var(--color-void);
+}
+
+/* Glassmorphism panel */
+.glass {
+  background: rgba(19, 26, 63, 0.55);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(167, 139, 250, 0.18);
+}
+
+/* Aura glow ring for selected cards */
+.aura-ring {
+  box-shadow:
+    0 0 0 2px rgba(167, 139, 250, 0.9),
+    0 0 24px 4px rgba(167, 139, 250, 0.45),
+    0 0 64px 12px rgba(94, 234, 212, 0.18);
+}
+
+/* Soft text glow for headings */
+.text-glow {
+  text-shadow: 0 0 24px rgba(167, 139, 250, 0.5);
+}
+
+/* Card 3D helpers (Motion drives the animation; these set the stage) */
+.perspective-1200 {
+  perspective: 1200px;
+}
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Thin elegant scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-abyss);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-haze);
+  border-radius: 8px;
+}
+
+/* Chat bubble tail for the profile step */
+.chat-bubble {
+  border-radius: 1.25rem;
+}
+
+input, select, textarea {
+  color-scheme: dark;
+}
