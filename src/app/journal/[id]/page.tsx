@@ -6,7 +6,15 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import AuraIcon from '@/components/AuraIcon';
+import {
+  ClarifierSection,
+  JournalMemoryBanner,
+  ShadowCardSection,
+  SoulLensSection,
+  SpreadChemistrySection,
+} from '@/components/PrecisionInsights';
 import { getCardById } from '@/data/cards';
+import { getPulseDef } from '@/data/emotional-pulse';
 import { getSpread } from '@/data/spreads';
 import { generateReading, type DrawnCard, type Reading } from '@/lib/reading-engine';
 import { loadReadings, type ReadingRecord } from '@/lib/storage';
@@ -17,14 +25,20 @@ function JournalDetailInner() {
   const params = useParams();
   const router = useRouter();
   const [record, setRecord] = useState<ReadingRecord | null>(null);
+  const [priorReadings, setPriorReadings] = useState<ReadingRecord[]>([]);
   const [notFound, setNotFound] = useState(false);
   const [activeTopicIdx, setActiveTopicIdx] = useState(0);
 
   useEffect(() => {
     const id = params.id as string;
-    const r = loadReadings().find((x) => x.id === id);
-    if (!r) setNotFound(true);
-    else setRecord(r);
+    const all = loadReadings();
+    const r = all.find((x) => x.id === id);
+    if (!r) {
+      setNotFound(true);
+    } else {
+      setRecord(r);
+      setPriorReadings(all.filter((x) => x.id !== r.id && x.createdAt < r.createdAt));
+    }
   }, [params.id]);
 
   const reading: Reading | null = useMemo(() => {
@@ -42,8 +56,21 @@ function JournalDetailInner() {
         };
       })
       .filter((x): x is DrawnCard => x !== null);
-    return generateReading(drawn, spread, record.profile, lang, record.seed);
-  }, [record, lang]);
+    return generateReading(
+      drawn,
+      spread,
+      record.profile,
+      lang,
+      record.seed,
+      record.shadowCard ?? null,
+      {
+        pulse: record.pulse ?? null,
+        clarifier: record.clarifier ?? null,
+        priorReadings,
+        referenceIsoDate: record.createdAt,
+      },
+    );
+  }, [record, priorReadings, lang]);
 
   if (notFound) {
     return (
@@ -62,6 +89,12 @@ function JournalDetailInner() {
   const hasMultiTopics = reading.topicViews.length > 1;
   const activeView = reading.topicViews[activeTopicIdx] ?? reading.topicViews[0];
   const activeSections = activeView ? activeView.sections : reading.sections;
+  const activeSoulLens = activeView ? activeView.soulLens : reading.soulLens;
+  const activeShadow = activeView ? activeView.shadow : reading.shadow;
+  const activeClarifier = activeView ? activeView.clarifier : reading.clarifier;
+  const pulseDef = getPulseDef(record.pulse);
+  const hasFocusBadges =
+    (reading.topicViews.length > 0 && reading.topicViews[0].topic !== 'general') || Boolean(pulseDef);
 
   return (
     <div className="mx-auto max-w-3xl py-10">
@@ -82,20 +115,28 @@ function JournalDetailInner() {
           })}
         </p>
 
-        {reading.topicViews.length > 0 && reading.topicViews[0].topic !== 'general' ? (
+        {hasFocusBadges ? (
           <div className="mt-2.5 flex flex-wrap gap-2">
-            {reading.topicViews.map((tv) => (
-              <span
-                key={tv.topic}
-                className="inline-flex items-center gap-1.5 rounded-full border border-aura-violet/30 bg-aura-violet/10 px-3 py-1 text-xs text-moon"
-              >
-                <AuraIcon name={tv.icon} className="h-3.5 w-3.5 text-aura-teal" />
-                <span>
-                  {tv.topicLabel}
-                  {tv.subTagLabel ? ` · ${tv.subTagLabel}` : ''}
+            {reading.topicViews
+              .filter((tv) => tv.topic !== 'general')
+              .map((tv) => (
+                <span
+                  key={tv.topic}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-aura-violet/30 bg-aura-violet/10 px-3 py-1 text-xs text-moon"
+                >
+                  <AuraIcon name={tv.icon} className="h-3.5 w-3.5 text-aura-teal" />
+                  <span>
+                    {tv.topicLabel}
+                    {tv.subTagLabel ? ` · ${tv.subTagLabel}` : ''}
+                  </span>
                 </span>
+              ))}
+            {pulseDef && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-aura-rose/35 bg-aura-rose/12 px-3 py-1 text-xs text-aura-rose">
+                <AuraIcon name={pulseDef.icon} className="h-3.5 w-3.5" />
+                <span>{lang === 'th' ? pulseDef.labelTh : pulseDef.labelEn}</span>
               </span>
-            ))}
+            )}
           </div>
         ) : (
           record.profile.question && (
@@ -108,12 +149,23 @@ function JournalDetailInner() {
         </h1>
       </motion.div>
 
+      {reading.journalMemory && (
+        <div className="mt-6">
+          <JournalMemoryBanner memory={reading.journalMemory} />
+        </div>
+      )}
+
       {reading.overview && (
         <section className="mt-6 rounded-3xl border border-white/8 bg-abyss/60 p-6">
           <h2 className="font-display mb-3 text-lg font-semibold text-aura-violet">{t('reveal.overviewLabel')}</h2>
           <p className="text-sm leading-loose text-moondim">{reading.overview}</p>
         </section>
       )}
+
+      <div className="mt-6 space-y-6">
+        <SpreadChemistrySection chemistry={reading.chemistry} shadowRevealed={true} />
+        {activeSoulLens && <SoulLensSection soulLens={activeSoulLens} />}
+      </div>
 
       <section className="mt-8">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -192,11 +244,37 @@ function JournalDetailInner() {
                     {para}
                   </p>
                 ))}
+
+                {s.courtPersonaNote && (
+                  <div className="rounded-2xl border border-aura-gold/25 bg-aura-gold/8 px-4 py-3 text-xs leading-relaxed text-moondim sm:text-sm">
+                    <span className="font-display mr-2 inline-flex items-center gap-1 rounded-full border border-aura-gold/35 bg-aura-gold/15 px-2.5 py-0.5 text-[11px] font-semibold text-aura-gold">
+                      <AuraIcon name="users" className="h-3 w-3" />
+                      {t('reveal.courtPersonaBadge')}
+                    </span>
+                    <span>{s.courtPersonaNote}</span>
+                  </div>
+                )}
               </div>
             </article>
           ))}
         </div>
       </section>
+
+      {activeShadow && (
+        <div className="mt-6">
+          <ShadowCardSection shadow={activeShadow} revealed={true} onReveal={() => {}} />
+        </div>
+      )}
+
+      {activeClarifier && (
+        <div className="mt-6">
+          <ClarifierSection
+            topic={activeView?.topic ?? 'general'}
+            subTag={activeView?.subTag}
+            clarifier={activeClarifier}
+          />
+        </div>
+      )}
 
       <section className="mt-6 rounded-3xl border border-aura-teal/20 bg-aura-teal/5 p-6">
         <h2 className="font-display mb-3 text-lg font-semibold text-aura-teal">{t('reveal.adviceLabel')}</h2>

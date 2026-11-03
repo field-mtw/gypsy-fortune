@@ -1,6 +1,7 @@
 // Local-first persistence. Everything stays in the user's browser.
 
 import type { SelectableTopic } from '@/data/card-types';
+import type { ClarifierIntent, EmotionalPulse } from '@/data/emotional-pulse';
 import type { FocusSubTag } from '@/data/focus-topics';
 
 export interface UserProfile {
@@ -21,12 +22,24 @@ export interface DrawnCardRef {
   reversed: boolean;
 }
 
+export interface ClarifierCardRef {
+  id: string;
+  reversed: boolean;
+  intent: ClarifierIntent;
+}
+
 export interface ReadingRecord {
   id: string;
   createdAt: string; // ISO
   level: 1 | 3 | 10;
   category: string;
   cards: DrawnCardRef[];
+  /** Optional bottom-of-the-deck Shadow Card (subconscious current) */
+  shadowCard?: DrawnCardRef;
+  /** Optional interactive Clarifier card drawn on follow-up question */
+  clarifier?: ClarifierCardRef;
+  /** Optional inner emotional state selected at the time of reading */
+  pulse?: EmotionalPulse;
   profile: UserProfile;
   summaryTh: string;
   summaryEn: string;
@@ -94,6 +107,15 @@ export function saveReading(r: ReadingRecord) {
 export function markAccuracy(id: string, mark: Exclude<AccuracyMark, null>) {
   try {
     const list = loadReadings().map((r) => (r.id === id ? { ...r, accuracy: mark } : r));
+    window.localStorage.setItem(READINGS_KEY, JSON.stringify(list));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+export function updateReadingClarifier(id: string, clarifier: ClarifierCardRef) {
+  try {
+    const list = loadReadings().map((r) => (r.id === id ? { ...r, clarifier } : r));
     window.localStorage.setItem(READINGS_KEY, JSON.stringify(list));
   } catch {
     /* storage unavailable */

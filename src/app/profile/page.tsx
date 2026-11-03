@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import AuraIcon from '@/components/AuraIcon';
 import type { SelectableTopic } from '@/data/card-types';
+import { EMOTIONAL_PULSES, type EmotionalPulse } from '@/data/emotional-pulse';
 import {
   FOCUS_TOPICS,
   formatFocusSelectionSummary,
@@ -49,6 +50,7 @@ export default function ProfilePage() {
   const [lockedPrimary, setLockedPrimary] = useState<SelectableTopic | null>(null);
   const [selectedTopics, setSelectedTopics] = useState<SelectableTopic[]>([]);
   const [selectedSubTags, setSelectedSubTags] = useState<Partial<Record<SelectableTopic, FocusSubTag>>>({});
+  const [pulse, setPulse] = useState<EmotionalPulse | null>(null);
 
   const [stepIdx, setStepIdx] = useState(0);
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -71,6 +73,7 @@ export default function ProfilePage() {
     setLockedPrimary(locked);
     setSelectedTopics(locked ? [locked] : []);
     setSelectedSubTags({});
+    setPulse(s.pulse ?? null);
 
     if (returning) {
       setStepIdx(2); // Jump straight to Focus step
@@ -194,7 +197,7 @@ export default function ProfilePage() {
 
     saveProfile(finalProfile);
     const s = loadSession();
-    if (s) saveSession({ ...s, profileDone: true });
+    if (s) saveSession({ ...s, pulse: pulse ?? undefined, profileDone: true });
     router.push('/reveal');
   };
 
@@ -569,6 +572,38 @@ export default function ProfilePage() {
                 );
               })}
           </AnimatePresence>
+
+          {/* Optional 1-Tap Emotional Pulse Check-in (Session-only, zero extra step) */}
+          <div className="mt-5 rounded-2xl border border-white/10 bg-abyss/55 p-3.5 sm:p-4">
+            <p className="mb-2.5 flex items-center gap-1.5 text-xs text-moondim">
+              <AuraIcon name="lotus" className="h-3.5 w-3.5 shrink-0 text-aura-rose" />
+              <span>{t('profile.pulseLabel')}</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {EMOTIONAL_PULSES.map((pDef) => {
+                const active = pulse === pDef.id;
+                return (
+                  <button
+                    key={pDef.id}
+                    type="button"
+                    onClick={() => setPulse((prev) => (prev === pDef.id ? null : pDef.id))}
+                    aria-pressed={active}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs transition-all ${
+                      active
+                        ? 'border-aura-rose/65 bg-aura-rose/20 font-medium text-moon shadow-[0_0_14px_rgba(244,114,182,0.28)]'
+                        : 'border-white/12 bg-void/50 text-moondim hover:border-aura-rose/35 hover:text-moon'
+                    }`}
+                  >
+                    <AuraIcon
+                      name={pDef.icon}
+                      className={`h-3.5 w-3.5 ${active ? 'text-aura-rose' : 'text-moonfaint'}`}
+                    />
+                    <span>{lang === 'th' ? pDef.labelTh : pDef.labelEn}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Actions */}
           <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">

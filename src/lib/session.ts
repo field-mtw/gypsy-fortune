@@ -3,7 +3,9 @@
 // Draw-flow session carried between /spread -> /pick -> /confirm -> /profile -> /reveal.
 // Stored in sessionStorage so a refresh mid-flow does not lose the draw.
 
+import type { EmotionalPulse } from '@/data/emotional-pulse';
 import type { SpreadLevel, SpreadCategory } from '@/data/spreads';
+import type { ClarifierCardRef, DrawnCardRef } from './storage';
 
 export interface DrawSession {
   seed: number;
@@ -15,6 +17,14 @@ export interface DrawSession {
   reversed: Record<string, boolean>;
   /** Shuffled deck order (card ids) for the pick screen */
   order: string[];
+  /** Bottom-of-the-deck card remaining after the user's picks (subconscious Shadow Card) */
+  shadowCard?: DrawnCardRef;
+  /** 3 unpicked cards reserved for the optional interactive Clarifier draw */
+  clarifierPool?: DrawnCardRef[];
+  /** Chosen Clarifier card + intent if already drawn during /reveal */
+  clarifier?: ClarifierCardRef;
+  /** Optional 1-tap emotional state for this session only */
+  pulse?: EmotionalPulse;
   profileDone: boolean;
 }
 

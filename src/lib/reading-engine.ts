@@ -2,7 +2,15 @@
 // 24 situational sub-tags, and up to 2 simultaneous topic lenses. Deterministic per seed.
 
 import type { AuraIconName } from '@/components/AuraIcon';
+import { getCardById } from '@/data/cards';
 import type { CardData, CardValence, Element, ReadingTopic, SelectableTopic } from '@/data/card-types';
+import {
+  buildPulseAwareHook,
+  getPulseCoachingAdvice,
+  isValidPulse,
+  type ClarifierIntent,
+  type EmotionalPulse,
+} from '@/data/emotional-pulse';
 import {
   getFocusTopicDef,
   getSubTagDef,
@@ -12,10 +20,21 @@ import {
 } from '@/data/focus-topics';
 import { SUBTAG_LENS } from '@/data/subtag-lens';
 import type { SpreadDef } from '@/data/spreads';
-import type { UserProfile } from './storage';
+import { buildConcreteTiming, buildCourtPersonaNote } from './court-and-timing';
+import {
+  buildClarifierReading,
+  buildConversationalLeadIn,
+  buildJournalMemory,
+  polishThaiFlow,
+  type ClarifierReading,
+  type JournalMemoryNote,
+} from './narrative-weaver';
+import type { ClarifierCardRef, DrawnCardRef, ReadingRecord, UserProfile } from './storage';
 import { th as vth, type Lang, type PositionRole } from './variants-th';
 import { en as ven } from './variants-en';
 import { getDayInfo } from './thai-astro';
+import { buildSoulLens, type SoulLensReading } from './tarot-numerology';
+import { analyzeSpreadChemistry, type SpreadChemistry } from './spread-chemistry';
 
 const V = { th: vth, en: ven };
 
@@ -35,25 +54,59 @@ export interface CardSection {
   oneLiner: string;
   detail: string;
   detailParagraphs: string[];
+  /** Context-aware Court Card persona/posture note (for the 16 Court Cards) */
+  courtPersonaNote?: string;
+}
+
+export interface ShadowCardReading {
+  cardId: string;
+  cardName: string;
+  cardSubtitle?: string;
+  image: string;
+  reversed: boolean;
+  oneLiner: string;
+  subconsciousCore: string;
+  innerUnlock: string;
 }
 
 export interface TopicView {
   topic: ReadingTopic;
+  subTag?: FocusSubTag;
   icon: AuraIconName;
   topicLabel: string;
   subTagLabel?: string;
   headline: string;
   sections: CardSection[];
+  shadow: ShadowCardReading | null;
+  soulLens: SoulLensReading | null;
+  clarifier: ClarifierReading | null;
+}
+
+export interface ReadingExtras {
+  pulse?: EmotionalPulse | null;
+  clarifier?: ClarifierCardRef | null;
+  priorReadings?: ReadingRecord[];
+  referenceIsoDate?: string | null;
 }
 
 export interface Reading {
   hook: string;
   headline: string;
   overview: string;
+  /** Longitudinal memory note if a card or topic recurs from saved Journal history */
+  journalMemory: JournalMemoryNote | null;
+  /** Spread-level elemental, arcana weight, and iconic pairing chemistry */
+  chemistry: SpreadChemistry;
   /** Default card sections (= topicViews[0].sections) */
   sections: CardSection[];
   /** 1 or 2 complete topic lenses for instant tab switching */
   topicViews: TopicView[];
+  /** Default Shadow Card reading (= topicViews[0].shadow) */
+  shadow: ShadowCardReading | null;
+  /** Default Birth Card & Element Soul Lens (= topicViews[0].soulLens) */
+  soulLens: SoulLensReading | null;
+  /** Default interactive Clarifier reading (= topicViews[0].clarifier) */
+  clarifier: ClarifierReading | null;
   advice: string[];
   timing: string | null;
   closing: string;
@@ -504,7 +557,7 @@ function buildOverview(
   const dualBridge = buildDualTopicBridge(topics, subTags, lang);
   if (drawn.length < 3) {
     // For 1-card draws, only show overview when 2 topics are chosen so the user sees how both connect
-    return dualBridge;
+    return lang === 'th' ? polishThaiFlow(dualBridge) : dualBridge;
   }
 
   const energyNote = buildDominantEnergyNote(drawn, lang, rng);
@@ -526,7 +579,7 @@ function buildOverview(
           : v9 === 'mixed'
             ? `กุญแจสำคัญอยู่ที่การยึดแนวทางจากไพ่ ${c6} เป็นหลักในการวางตัว เพื่อประคองให้บทสรุปในไพ่ ${c9} ออกมาสมดุลและสบายใจที่สุดค่ะ`
             : `หน้าไพ่ชุดนี้ใช้ไพ่ ${c9} เตือนภาพปลายทางไว้ล่วงหน้า เพื่อให้คุณหยิบคำแนะนำจากไพ่ ${c6} ไปปรับทิศทางตั้งแต่วันนี้ ซึ่งจะช่วยผ่อนหนักเป็นเบาได้มากค่ะ`;
-      return `${intro} ${arc} ${tail}`;
+      return polishThaiFlow(`${intro} ${arc} ${tail}`);
     }
 
     const introEn = `Reading the 10-card Celtic Cross as a whole, the heart of the matter rests on ${c0}, crossed by ${c1} as your main challenge and rooted in ${c5} beneath the surface.`;
@@ -563,19 +616,19 @@ function buildOverview(
           : v2 === 'mixed'
             ? `โดยไพ่สรุปอย่าง ${c2} บอกว่าทิศทางหลังจากนี้ขึ้นอยู่กับการค่อยๆ ประคองจังหวะและเปิดพื้นที่สบายใจให้กันและกันค่ะ`
             : `ส่วนไพ่ ${c2} ในตำแหน่งแนวโน้มแวะมาเตือนว่าอย่าเพิ่งใจร้อนคาดหวังหรือกดดันกัน การให้เวลาและพูดคุยกันดีๆ จะช่วยประคองความสัมพันธ์ได้ดีที่สุดค่ะ`;
-      return `${pairPart} ${trendPart} ${tail}`;
+      return polishThaiFlow(`${pairPart} ${trendPart} ${tail}`);
     }
 
     if (spread.category === 'career') {
       const startPart =
         v0 === 'positive'
-          ? `เมื่อดูภาพรวมเรื่องงาน จุดที่คุณยืนอยู่ในตอนนี้ (ไพ่ ${c0}) ถือว่ามีต้นทุนและศักยภาพที่ดีเลยค่ะ เพียงแต่มีโจทย์จากไพ่ ${c1} เข้ามาทดสอบให้ต้องจัดระเบียบและรับมืออย่างมีสติ`
+          ? `เมื่อดูภาพรวมเรื่องงาน จุดที่คุณยืนอยู่ในตอนนี้ (ไพ่ ${c0}) ถือว่ามีต้นทุนและศักยภาพที่ดีเลย เพียงแต่มีโจทย์จากไพ่ ${c1} เข้ามาทดสอบให้ต้องจัดระเบียบและรับมืออย่างมีสติ`
           : `ภาพรวมเรื่องงานในรอบนี้สะท้อนว่าสถานการณ์ปัจจุบัน (ไพ่ ${c0}) อาจทำให้รู้สึกตึงมือหรือเหนื่อยอยู่บ้าง โดยมีประเด็นจากไพ่ ${c1} เป็นโจทย์หลักที่ต้องค่อยๆ เคลียร์ให้ผ่าน`;
       const stepPart =
         v2 === 'positive'
           ? `จุดที่น่ายินดีคือไพ่ก้าวต่อไปอย่าง ${c2} เปิดทางสว่างไว้ชัดเจน หากขยับตัวตามแนวทางของไพ่ใบนี้ เรื่องงานจะเดินหน้าได้คล่องตัวขึ้นมากค่ะ`
           : `ทั้งนี้ไพ่ก้าวต่อไปอย่าง ${c2} แนะนำให้เน้นความรัดกุม ค่อยๆ วางแผนทีละขั้นโดยไม่ฝืนเร่งจังหวะเกินไป แล้วทุกอย่างจะค่อยๆ เข้าที่ค่ะ`;
-      return `${startPart} ${stepPart} ${tail}`;
+      return polishThaiFlow(`${startPart} ${stepPart} ${tail}`);
     }
 
     if (spread.category === 'money') {
@@ -587,7 +640,7 @@ function buildOverview(
         v2 === 'positive'
           ? `ส่วนไพ่แนวทางจัดการอย่าง ${c2} ชี้ว่าโอกาสสร้างความมั่นคงกำลังเปิดรับ ยิ่งจัดสรรอย่างเป็นระบบก็จะยิ่งเห็นผลดีชัดเจนค่ะ`
           : `โดยไพ่ ${c2} ในตำแหน่งแนวทางจัดการย้ำให้เน้นความปลอดภัยของเงินในมือเป็นหลัก ชะลอรายจ่ายที่ไม่จำเป็นไว้ก่อนจะอุ่นใจที่สุดค่ะ`;
-      return `${statePart} ${nextPart} ${tail}`;
+      return polishThaiFlow(`${statePart} ${nextPart} ${tail}`);
     }
 
     const flowPart =
@@ -600,7 +653,7 @@ function buildOverview(
         : v2 === 'mixed'
           ? `ก่อนจะขยับไปสู่ไพ่ ${c2} ที่บอกว่าทิศทางข้างหน้ายังยืดหยุ่นและปรับเปลี่ยนให้ดีขึ้นได้ตามการตัดสินใจของคุณในวันนี้ค่ะ`
           : `ส่วนไพ่ ${c2} ในตำแหน่งข้างหน้าขึ้นมาช่วยเตือนล่วงหน้า เพื่อให้คุณวางแผนรับมือแบบไม่ประมาทและผ่อนหนักเป็นเบาได้ทันเวลาค่ะ`;
-    return `${flowPart} ${futurePart} ${tail}`;
+    return polishThaiFlow(`${flowPart} ${futurePart} ${tail}`);
   }
 
   const firstFlowEn =
@@ -738,89 +791,86 @@ function collectSingleTopicAdvice(
   return tips.slice(0, maxCount);
 }
 
-/* ---------- realistic human-scale timing ---------- */
+/* ---------- Shadow Card (bottom of the deck subconscious current) ---------- */
 
-const FAST_MAJOR_IDS = new Set([
-  'major-00-fool',
-  'major-01-magician',
-  'major-07-chariot',
-  'major-10-wheel',
-  'major-16-tower',
-]);
+function buildShadowCardReading(
+  shadow: { card: CardData; reversed: boolean },
+  drawn: DrawnCard[],
+  topic: ReadingTopic,
+  subTag: FocusSubTag | undefined,
+  lang: Lang,
+  rng: Rng,
+): ShadowCardReading {
+  const { card, reversed } = shadow;
+  const topicData = card.topicsTh[topic] ?? card.topicsTh.general;
+  const cName = lang === 'th' ? card.nameTh : card.nameEn;
+  const revTag = reversed ? (lang === 'th' ? ' (กลับหัว)' : ' (Reversed)') : '';
+  const topicPhrase = getTopicPhrase(topic, subTag, lang);
+  const lastMain = drawn.length > 0 ? cardLabel(drawn[drawn.length - 1], lang) : cName;
 
-function buildTiming(lastDrawn: DrawnCard, lang: Lang, rng: Rng): string {
-  const { card, reversed } = lastDrawn;
-  const num = card.number ?? 11;
-  let timeframeTh: string;
-  let timeframeEn: string;
+  const oneLiner =
+    lang === 'th'
+      ? reversed
+        ? topicData.themeReversed
+        : topicData.themeUpright
+      : buildEnglishOneLiner(card, topic, reversed);
 
-  if (card.suit === 'wands') {
-    if (!reversed && (num <= 5 || card.court === 'page' || card.court === 'knight')) {
-      timeframeTh = 'ในช่วง 3–7 วันข้างหน้า';
-      timeframeEn = 'within the next 3–7 days';
-    } else if (!reversed || num <= 5) {
-      timeframeTh = 'ในช่วง 1–2 สัปดาห์ข้างหน้า';
-      timeframeEn = 'within 1–2 weeks';
-    } else {
-      timeframeTh = 'ในช่วง 2–4 สัปดาห์ข้างหน้า';
-      timeframeEn = 'within 2–4 weeks';
-    }
-  } else if (card.suit === 'swords') {
-    if (!reversed && (num <= 5 || card.court === 'page' || card.court === 'knight')) {
-      timeframeTh = 'ในช่วง 1–2 สัปดาห์ข้างหน้า';
-      timeframeEn = 'within 1–2 weeks';
-    } else if (!reversed || num <= 5) {
-      timeframeTh = 'ในช่วง 2–4 สัปดาห์ข้างหน้า';
-      timeframeEn = 'within 2–4 weeks';
-    } else {
-      timeframeTh = 'ในช่วง 1–2 เดือนข้างหน้า';
-      timeframeEn = 'over the next 1–2 months';
-    }
-  } else if (card.suit === 'cups') {
-    if (!reversed && (num <= 5 || card.court === 'page' || card.court === 'knight')) {
-      timeframeTh = 'ในช่วง 2–4 สัปดาห์ข้างหน้า';
-      timeframeEn = 'within 2–4 weeks';
-    } else if (!reversed || num <= 5) {
-      timeframeTh = 'ในช่วง 1–3 เดือนข้างหน้า';
-      timeframeEn = 'over the next 1–3 months';
-    } else {
-      timeframeTh = 'ในช่วง 2–4 เดือนข้างหน้า';
-      timeframeEn = 'over the next 2–4 months';
-    }
-  } else if (card.suit === 'pentacles') {
-    if (!reversed && (num <= 4 || card.court === 'page')) {
-      timeframeTh = 'ในช่วง 1–3 เดือนข้างหน้า';
-      timeframeEn = 'over the next 1–3 months';
-    } else if (!reversed && num <= 8) {
-      timeframeTh = 'ในช่วง 3–6 เดือนข้างหน้า';
-      timeframeEn = 'over the next 3–6 months';
-    } else {
-      timeframeTh = 'ในช่วง 6–12 เดือนข้างหน้า';
-      timeframeEn = 'over the next 6–12 months';
-    }
-  } else {
-    if (FAST_MAJOR_IDS.has(card.id)) {
-      timeframeTh = reversed ? 'ในช่วง 1–3 เดือนข้างหน้า' : 'ในช่วง 2–4 สัปดาห์ข้างหน้า';
-      timeframeEn = reversed ? 'over the next 1–3 months' : 'within 2–4 weeks';
-    } else {
-      timeframeTh = reversed
-        ? 'ในช่วง 3–6 เดือนข้างหน้าเมื่อปัจจัยรอบด้านค่อยๆ ลงตัว'
-        : 'ในช่วง 1–3 เดือนข้างหน้าตามจังหวะความพร้อมของคุณ';
-      timeframeEn = reversed
-        ? 'over the next 3–6 months as surrounding pieces settle into place'
-        : 'over the next 1–3 months in step with your readiness';
-    }
+  if (lang === 'th') {
+    const coreMeaning = reversed ? topicData.reversed : topicData.upright;
+    const tip = reversed ? topicData.adviceReversed : topicData.adviceUpright;
+    const leadIn = pick(rng, [
+      `ไพ่ใบสุดท้ายที่ซ่อนอยู่ใต้ก้นสำรับคือ ${cName}${revTag} ซึ่งทำหน้าที่สะท้อนเสียงจากจิตใต้สำนึกเกี่ยวกับ${topicPhrase}ที่คุณอาจยังไม่ได้พูดออกมาตรงๆ —`,
+      `เบื้องหลังไพ่บนกระดานหลัก มีไพ่ ${cName}${revTag} นอนรออยู่ที่ก้นสำรับ คอยบอกถึงแรงขับเคลื่อนลึกๆ ในใจเรื่อง${topicPhrase}ว่า`,
+      `ในมุมความรู้สึกส่วนลึกที่คุณอาจเผลอมองข้าม ไพ่ใต้สำรับอย่าง ${cName}${revTag} สะท้อนภาพเบื้องหลังของ${topicPhrase}ไว้ว่า`,
+    ]);
+
+    const reassure = card.isNegative
+      ? ' ไม่ต้องกังวลไปนะ ไพ่ใต้สำรับไม่ได้ขึ้นมาเพื่อขู่ แต่ขึ้นมาช่วยให้คุณรู้เท่าทันความกังวลลึกๆ ของตัวเองจะได้วางลงได้เบาขึ้นค่ะ'
+      : '';
+
+    const innerUnlock = polishThaiFlow(
+      `เมื่อนำเสียงสะท้อนใต้สำรับใบนี้มาวางเคียงข้างไพ่สรุปอย่าง ${lastMain} กุญแจปลดล็อกใจที่สำคัญที่สุดสำหรับคุณคือ ${tip}${reassure}`,
+    );
+
+    return {
+      cardId: card.id,
+      cardName: cName,
+      cardSubtitle: card.subtitleTh,
+      image: card.image,
+      reversed,
+      oneLiner,
+      subconsciousCore: polishThaiFlow(`${leadIn} ${coreMeaning}`),
+      innerUnlock,
+    };
   }
 
-  return fill(pick(rng, V[lang].timingFrame), {
-    timeframe: lang === 'th' ? timeframeTh : timeframeEn,
-  });
+  const coreEn = reversed ? card.reversedEn : card.uprightEn;
+  const subconsciousCore = `Resting at the very bottom of the deck, ${cName}${revTag} reveals the unspoken subconscious current beneath ${topicPhrase}: ${coreEn}`;
+  const innerUnlock = card.isNegative
+    ? `Read alongside ${lastMain} on the main spread, this shadow card gently brings hidden tension into awareness so you can release pressure and respond with calm clarity.`
+    : `Read alongside ${lastMain} on the main spread, acknowledging this quiet inner motivation helps align what your heart truly feels with your next outward step.`;
+
+  return {
+    cardId: card.id,
+    cardName: cName,
+    cardSubtitle: undefined,
+    image: card.image,
+    reversed,
+    oneLiner,
+    subconsciousCore,
+    innerUnlock,
+  };
 }
 
 /* ---------- build sections for a single topic lens ---------- */
 
 function buildTopicView(
   drawn: DrawnCard[],
+  shadowResolved: { card: CardData; reversed: boolean } | null,
+  clarifierResolved: { card: CardData; reversed: boolean; intent: ClarifierIntent } | null,
+  birthdate: string,
+  dominantElement: Element,
+  overallValence: CardValence,
   topic: ReadingTopic,
   subTag: FocusSubTag | undefined,
   lang: Lang,
@@ -836,17 +886,16 @@ function buildTopicView(
     const valence = getValence(card, reversed);
     const posName = lang === 'th' ? position.nameTh : position.nameEn;
     const cName = lang === 'th' ? card.nameTh : card.nameEn;
-    const revTag = reversed ? (lang === 'th' ? ' (กลับหัว)' : ' (Reversed)') : '';
 
-    let leadIn: string;
-    if (role === 'challenge' && valence === 'positive') {
-      leadIn =
-        lang === 'th'
-          ? `ในตำแหน่งโจทย์สำคัญของเรื่องนี้ ไพ่ ${cName}${revTag} กลับขึ้นมาเป็นพลังบวกที่ช่วยคลี่คลายความกังวล`
-          : `In the challenge position, ${cName}${revTag} actually brings supportive energy that helps ease the friction.`;
-    } else {
-      leadIn = fill(pick(rng, v.positionLeadIn[role]), { card: cName, revTag });
-    }
+    const leadIn = buildConversationalLeadIn(
+      d,
+      idx > 0 ? drawn[idx - 1] : null,
+      idx,
+      drawn.length,
+      role,
+      lang,
+      rng,
+    );
 
     const topicData = card.topicsTh[topic] ?? card.topicsTh.general;
     const coreMeaning =
@@ -858,32 +907,38 @@ function buildTopicView(
           ? card.reversedEn
           : card.uprightEn;
 
-    const detailParagraphs: string[] = [`${leadIn} ${coreMeaning}`];
+    const rawParagraphs: string[] = [`${leadIn} ${coreMeaning}`];
 
     // Inject sub-tag situational lens on the decisive card (single card, 3rd card, or Celtic Cross outcome)
     const isDecisiveCard = idx === drawn.length - 1;
     if (isDecisiveCard && subTag && SUBTAG_LENS[subTag]) {
-      detailParagraphs.push(SUBTAG_LENS[subTag][lang][valence]);
+      rawParagraphs.push(SUBTAG_LENS[subTag][lang][valence]);
     }
 
     // Contextual note (ethics / early-warning reassurance / reversed nuance)
     if (position.id === 'other') {
-      detailParagraphs.push(pick(rng, v.otherPersonNote));
+      rawParagraphs.push(pick(rng, v.otherPersonNote));
     } else if (card.isNegative) {
       if (reversed && (card.reversedTone === 'releasing' || valence === 'positive')) {
-        detailParagraphs.push(pick(rng, v.negativeReversedNote));
+        rawParagraphs.push(pick(rng, v.negativeReversedNote));
       } else if (reversed) {
-        detailParagraphs.push(pick(rng, v.reversedNote[card.reversedTone]));
+        rawParagraphs.push(pick(rng, v.reversedNote[card.reversedTone]));
       } else {
-        detailParagraphs.push(pick(rng, v.negativeUprightNote));
+        rawParagraphs.push(pick(rng, v.negativeUprightNote));
       }
     } else if (reversed) {
-      detailParagraphs.push(pick(rng, v.reversedNote[card.reversedTone]));
+      rawParagraphs.push(pick(rng, v.reversedNote[card.reversedTone]));
     } else if (drawn.length >= 10 && role === 'advice' && lang === 'th') {
       const tip = topicData.adviceUpright;
       inlineAdviceTipUsed = tip;
-      detailParagraphs.push(fill(pick(rng, v.advicePositionNote), { tip }));
+      rawParagraphs.push(fill(pick(rng, v.advicePositionNote), { tip }));
     }
+
+    const detailParagraphs =
+      lang === 'th' ? rawParagraphs.map(polishThaiFlow) : rawParagraphs;
+
+    const courtPersonaNote =
+      buildCourtPersonaNote(card, reversed, topic, subTag, position.id, lang) ?? undefined;
 
     const oneLiner =
       lang === 'th'
@@ -902,6 +957,7 @@ function buildTopicView(
       oneLiner,
       detail: detailParagraphs.join('\n\n'),
       detailParagraphs,
+      courtPersonaNote,
     };
   });
 
@@ -909,14 +965,37 @@ function buildTopicView(
   const fDef = topic !== 'general' ? getFocusTopicDef(topic) : undefined;
   const stDef = subTag ? getSubTagDef(subTag) : undefined;
 
+  const shadow = shadowResolved
+    ? buildShadowCardReading(shadowResolved, drawn, topic, subTag, lang, rng)
+    : null;
+
+  const soulLens = birthdate
+    ? buildSoulLens(
+        birthdate,
+        drawn,
+        topic,
+        dominantElement,
+        overallValence,
+        lang,
+      )
+    : null;
+
+  const clarifier = clarifierResolved
+    ? buildClarifierReading(clarifierResolved, drawn, topic, subTag, lang)
+    : null;
+
   return {
     view: {
       topic,
+      subTag,
       icon: fDef?.icon ?? 'spark',
       topicLabel: getTopicLabel(topic, lang),
       subTagLabel: stDef ? (lang === 'th' ? stDef.labelTh : stDef.labelEn) : undefined,
       headline: viewHeadline,
       sections,
+      shadow,
+      soulLens,
+      clarifier,
     },
     inlineAdviceTipUsed,
   };
@@ -930,10 +1009,42 @@ export function generateReading(
   profile: UserProfile,
   lang: Lang,
   seed: number,
+  shadowCardRef?: DrawnCardRef | null,
+  options?: ReadingExtras,
 ): Reading {
   const rng = mulberry32(seed);
   const v = V[lang];
   const { topics, subTags, usedStructuredFocus } = resolveActiveFocus(spread, profile);
+  const activePulse = isValidPulse(options?.pulse) ? options.pulse : null;
+
+  /* resolve optional Shadow Card (ensuring it never duplicates a drawn main card) */
+  let shadowResolved: { card: CardData; reversed: boolean } | null = null;
+  if (shadowCardRef?.id && !drawn.some((d) => d.card.id === shadowCardRef.id)) {
+    const sc = getCardById(shadowCardRef.id);
+    if (sc) {
+      shadowResolved = { card: sc, reversed: Boolean(shadowCardRef.reversed) };
+    }
+  }
+
+  /* resolve optional interactive Clarifier Card */
+  let clarifierResolved: { card: CardData; reversed: boolean; intent: ClarifierIntent } | null = null;
+  if (
+    options?.clarifier?.id &&
+    !drawn.some((d) => d.card.id === options.clarifier!.id) &&
+    options.clarifier.id !== shadowCardRef?.id
+  ) {
+    const cc = getCardById(options.clarifier.id);
+    if (cc) {
+      clarifierResolved = {
+        card: cc,
+        reversed: Boolean(options.clarifier.reversed),
+        intent: options.clarifier.intent,
+      };
+    }
+  }
+
+  /* analyze whole-spread chemistry & iconic pairings */
+  const chemistry = analyzeSpreadChemistry(drawn, shadowResolved, lang);
 
   /* hook */
   const displayName = formatUserName(profile.name, lang);
@@ -941,18 +1052,25 @@ export function generateReading(
   const hasName = displayName.length > 0;
   const hasQ = cleanQuestion.length > 0;
 
-  let hook: string;
+  let focusPhraseForHook: string | null = null;
   if (usedStructuredFocus && topics[0] !== 'general') {
-    const focusPhrase =
+    focusPhraseForHook =
       topics.length >= 2
         ? lang === 'th'
           ? `${getTopicPhrase(topics[0], subTags[topics[0]], 'th')} ควบคู่กับ${getTopicPhrase(topics[1], subTags[topics[1]], 'th')}`
           : `${getTopicPhrase(topics[0], subTags[topics[0]], 'en')} alongside ${getTopicPhrase(topics[1], subTags[topics[1]], 'en')}`
         : getTopicPhrase(topics[0], subTags[topics[0]], lang);
+  } else if (hasQ) {
+    focusPhraseForHook = cleanQuestion;
+  }
 
+  let hook: string;
+  if (activePulse) {
+    hook = buildPulseAwareHook(activePulse, displayName, focusPhraseForHook, lang);
+  } else if (usedStructuredFocus && topics[0] !== 'general' && focusPhraseForHook) {
     hook = hasName
-      ? fill(pick(rng, v.hookFocusBoth), { name: displayName, focus: focusPhrase })
-      : fill(pick(rng, v.hookFocusOnly), { focus: focusPhrase });
+      ? fill(pick(rng, v.hookFocusBoth), { name: displayName, focus: focusPhraseForHook })
+      : fill(pick(rng, v.hookFocusOnly), { focus: focusPhraseForHook });
   } else if (hasName && hasQ) {
     hook = fill(pick(rng, v.hookBoth), { name: displayName, question: cleanQuestion });
   } else if (hasName) {
@@ -965,7 +1083,18 @@ export function generateReading(
 
   /* build topicViews (1 or 2 complete lenses) */
   const builtViews = topics.map((t, idx) =>
-    buildTopicView(drawn, t, subTags[t], lang, (seed ^ ((idx + 1) * 0x9e3779b9)) >>> 0),
+    buildTopicView(
+      drawn,
+      shadowResolved,
+      clarifierResolved,
+      profile.birthdate,
+      chemistry.dominantElement,
+      chemistry.overallValence,
+      t,
+      subTags[t],
+      lang,
+      (seed ^ ((idx + 1) * 0x9e3779b9)) >>> 0,
+    ),
   );
   const topicViews = builtViews.map((b) => b.view);
   const primarySections = topicViews[0]?.sections ?? [];
@@ -980,7 +1109,16 @@ export function generateReading(
   );
   const overview = buildOverview(drawn, spread, topics, subTags, lang, rng);
 
-  /* advice: unified across 1 or 2 topics */
+  /* Journal longitudinal memory */
+  const journalMemory = buildJournalMemory(
+    drawn,
+    topics[0] ?? 'general',
+    chemistry.overallValence,
+    options?.priorReadings ?? [],
+    lang,
+  );
+
+  /* advice: unified across 1 or 2 topics + emotional pulse coaching */
   let advice: string[];
   if (topics.length >= 2) {
     const t0Tips = collectSingleTopicAdvice(
@@ -1022,7 +1160,17 @@ export function generateReading(
     );
   }
 
-  const timing = drawn.length > 0 ? buildTiming(drawn[drawn.length - 1], lang, rng) : null;
+  if (activePulse) {
+    const pulseTip = getPulseCoachingAdvice(activePulse, chemistry.overallValence, lang);
+    if (!advice.includes(pulseTip)) {
+      advice = [pulseTip, ...advice].slice(0, 4);
+    }
+  }
+
+  const timing =
+    drawn.length > 0
+      ? buildConcreteTiming(drawn[drawn.length - 1], options?.referenceIsoDate, lang)
+      : null;
 
   /* personal note: lucky color from birthdate */
   let personalNote: string | null = null;
@@ -1040,8 +1188,13 @@ export function generateReading(
     hook,
     headline,
     overview,
+    journalMemory,
+    chemistry,
     sections: primarySections,
     topicViews,
+    shadow: topicViews[0]?.shadow ?? null,
+    soulLens: topicViews[0]?.soulLens ?? null,
+    clarifier: topicViews[0]?.clarifier ?? null,
     advice,
     timing,
     closing,

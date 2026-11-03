@@ -6,11 +6,29 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import AuraIcon from '@/components/AuraIcon';
+import {
+  ClarifierSection,
+  JournalMemoryBanner,
+  ShadowCardSection,
+  SoulLensSection,
+  SpreadChemistrySection,
+} from '@/components/PrecisionInsights';
 import { getCardById, CARD_BACK_IMAGE } from '@/data/cards';
+import { getPulseDef, type EmotionalPulse } from '@/data/emotional-pulse';
 import { getSpread } from '@/data/spreads';
 import { generateReading, type DrawnCard, type Reading } from '@/lib/reading-engine';
-import { loadSession, clearSession } from '@/lib/session';
-import { loadProfile, saveReading, type ReadingRecord, type UserProfile } from '@/lib/storage';
+import { loadSession, saveSession, clearSession } from '@/lib/session';
+import {
+  loadProfile,
+  loadReadings,
+  saveProfile,
+  saveReading,
+  updateReadingClarifier,
+  type ClarifierCardRef,
+  type DrawnCardRef,
+  type ReadingRecord,
+  type UserProfile,
+} from '@/lib/storage';
 
 function FlipCard({
   image,
@@ -69,6 +87,13 @@ export default function RevealPage() {
   const [level, setLevel] = useState<1 | 3 | 10>(3);
   const [category, setCategory] = useState('past-present-future');
   const [flipped, setFlipped] = useState<boolean[]>([]);
+  const [shadowCardRef, setShadowCardRef] = useState<DrawnCardRef | null>(null);
+  const [shadowRevealed, setShadowRevealed] = useState(false);
+  const [pulse, setPulse] = useState<EmotionalPulse | null>(null);
+  const [clarifierPool, setClarifierPool] = useState<DrawnCardRef[]>([]);
+  const [clarifier, setClarifier] = useState<ClarifierCardRef | null>(null);
+  const [priorReadings, setPriorReadings] = useState<ReadingRecord[]>([]);
+  const [referenceIsoDate, setReferenceIsoDate] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [activeTopicIdx, setActiveTopicIdx] = useState(0);
   const [profile, setProfile] = useState<UserProfile>({
@@ -98,8 +123,35 @@ export default function RevealPage() {
         };
       })
       .filter((x): x is DrawnCard => x !== null);
+
+    let resolvedShadow: DrawnCardRef | null = s.shadowCard ?? null;
+    if (!resolvedShadow && Array.isArray(s.order) && s.order.length > 0) {
+      const remaining = s.order.filter((id) => !s.picks.includes(id));
+      const bottomId = remaining[remaining.length - 1];
+      if (bottomId) {
+        resolvedShadow = { id: bottomId, reversed: s.reversed[bottomId] ?? false };
+      }
+    }
+
+    let resolvedPool: DrawnCardRef[] = Array.isArray(s.clarifierPool) ? s.clarifierPool : [];
+    if (resolvedPool.length === 0 && Array.isArray(s.order) && s.order.length > 0) {
+      const remainingForPool = s.order.filter(
+        (id) => !s.picks.includes(id) && id !== resolvedShadow?.id,
+      );
+      resolvedPool = remainingForPool.slice(-3).map((id) => ({
+        id,
+        reversed: s.reversed[id] ?? false,
+      }));
+    }
+
     setProfile(loadProfile());
     setDrawn(cards);
+    setShadowCardRef(resolvedShadow);
+    setClarifierPool(resolvedPool);
+    setClarifier(s.clarifier ?? null);
+    setPulse(s.pulse ?? null);
+    setPriorReadings(loadReadings());
+    setReferenceIsoDate(new Date().toISOString());
     setSeed(s.seed);
     setLevel(s.level);
     setCategory(s.category);
@@ -109,8 +161,25 @@ export default function RevealPage() {
   const reading: Reading | null = useMemo(() => {
     if (!drawn) return null;
     const spread = getSpread(level, category as 'past-present-future');
-    return generateReading(drawn, spread, profile, lang, seed);
-  }, [drawn, level, category, profile, lang, seed]);
+    return generateReading(drawn, spread, profile, lang, seed, shadowCardRef, {
+      pulse,
+      clarifier,
+      priorReadings,
+      referenceIsoDate,
+    });
+  }, [
+    drawn,
+    level,
+    category,
+    profile,
+    lang,
+    seed,
+    shadowCardRef,
+    pulse,
+    clarifier,
+    priorReadings,
+    referenceIsoDate,
+  ]);
 
   if (!drawn || !reading) {
     return <p className="py-24 text-center text-moondim">{t('common.loading')}</p>;
@@ -119,17 +188,47 @@ export default function RevealPage() {
   const allFlipped = flipped.every(Boolean);
   const flipAll = () => setFlipped(drawn.map(() => true));
 
+  const handleSaveBirthdate = (newBirthdate: string) => {
+    const updated: UserProfile = { ...profile, birthdate: newBirthdate };
+    saveProfile(updated);
+    setProfile(updated);
+  };
+
+  const handlePickClarifier = (chosen: ClarifierCardRef) => {
+    setClarifier(chosen);
+    const s = loadSession();
+    if (s) {
+      saveSession({ ...s, clarifier: chosen });
+    }
+    if (savedId) {
+      updateReadingClarifier(savedId, chosen);
+    }
+  };
+
   const handleSave = () => {
     if (savedId) return;
     const spread = getSpread(level, category as 'past-present-future');
-    const readingTh = generateReading(drawn, spread, profile, 'th', seed);
-    const readingEn = generateReading(drawn, spread, profile, 'en', seed);
+    const readingTh = generateReading(drawn, spread, profile, 'th', seed, shadowCardRef, {
+      pulse,
+      clarifier,
+      priorReadings,
+      referenceIsoDate,
+    });
+    const readingEn = generateReading(drawn, spread, profile, 'en', seed, shadowCardRef, {
+      pulse,
+      clarifier,
+      priorReadings,
+      referenceIsoDate,
+    });
     const record: ReadingRecord = {
       id: `r-${seed}-${Date.now()}`,
-      createdAt: new Date().toISOString(),
+      createdAt: referenceIsoDate ?? new Date().toISOString(),
       level,
       category,
       cards: drawn.map((d) => ({ id: d.card.id, reversed: d.reversed })),
+      shadowCard: shadowCardRef ?? undefined,
+      clarifier: clarifier ?? undefined,
+      pulse: pulse ?? undefined,
       profile,
       summaryTh: readingTh.headline,
       summaryEn: readingEn.headline,
@@ -155,6 +254,12 @@ export default function RevealPage() {
   const hasMultiTopics = reading.topicViews.length > 1;
   const activeView = reading.topicViews[activeTopicIdx] ?? reading.topicViews[0];
   const activeSections = activeView ? activeView.sections : reading.sections;
+  const activeSoulLens = activeView ? activeView.soulLens : reading.soulLens;
+  const activeShadow = activeView ? activeView.shadow : reading.shadow;
+  const activeClarifier = activeView ? activeView.clarifier : reading.clarifier;
+  const pulseDef = getPulseDef(pulse);
+  const showTopBadges =
+    (reading.topicViews.length > 0 && reading.topicViews[0].topic !== 'general') || Boolean(pulseDef);
 
   return (
     <div className="py-10">
@@ -162,21 +267,29 @@ export default function RevealPage() {
         <h1 className="font-display text-2xl font-semibold text-moon sm:text-3xl">{t('reveal.title')}</h1>
         <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-moondim">{reading.hook}</p>
 
-        {/* Selected Focus Badges */}
-        {reading.topicViews.length > 0 && reading.topicViews[0].topic !== 'general' && (
+        {/* Selected Focus & Emotional Pulse Badges */}
+        {showTopBadges && (
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-            {reading.topicViews.map((tv) => (
-              <span
-                key={tv.topic}
-                className="inline-flex items-center gap-1.5 rounded-full border border-aura-violet/30 bg-aura-violet/10 px-3.5 py-1 text-xs text-moon"
-              >
-                <AuraIcon name={tv.icon} className="h-3.5 w-3.5 text-aura-teal" />
-                <span>
-                  {tv.topicLabel}
-                  {tv.subTagLabel ? ` · ${tv.subTagLabel}` : ''}
+            {reading.topicViews
+              .filter((tv) => tv.topic !== 'general')
+              .map((tv) => (
+                <span
+                  key={tv.topic}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-aura-violet/30 bg-aura-violet/10 px-3.5 py-1 text-xs text-moon"
+                >
+                  <AuraIcon name={tv.icon} className="h-3.5 w-3.5 text-aura-teal" />
+                  <span>
+                    {tv.topicLabel}
+                    {tv.subTagLabel ? ` · ${tv.subTagLabel}` : ''}
+                  </span>
                 </span>
+              ))}
+            {pulseDef && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-aura-rose/35 bg-aura-rose/12 px-3.5 py-1 text-xs text-aura-rose">
+                <AuraIcon name={pulseDef.icon} className="h-3.5 w-3.5" />
+                <span>{lang === 'th' ? pulseDef.labelTh : pulseDef.labelEn}</span>
               </span>
-            ))}
+            )}
           </div>
         )}
       </motion.div>
@@ -258,6 +371,9 @@ export default function RevealPage() {
               </p>
             </motion.section>
 
+            {/* Tarot Journal Memory (recurring cards / longitudinal thread) */}
+            <JournalMemoryBanner memory={reading.journalMemory} />
+
             {/* Overview */}
             {reading.overview && (
               <section className="rounded-3xl border border-white/8 bg-abyss/60 p-6">
@@ -267,6 +383,18 @@ export default function RevealPage() {
                 <p className="text-sm leading-loose text-moondim">{reading.overview}</p>
               </section>
             )}
+
+            {/* Spread Chemistry & Iconic Card Pairings */}
+            <SpreadChemistrySection
+              chemistry={reading.chemistry}
+              shadowRevealed={shadowRevealed}
+            />
+
+            {/* Personal Soul Lens (Tarot Birth Card & Element Resonance) */}
+            <SoulLensSection
+              soulLens={activeSoulLens}
+              onSaveBirthdate={handleSaveBirthdate}
+            />
 
             {/* Card by card + Topic Switcher when 2 topics are chosen */}
             <section>
@@ -355,11 +483,37 @@ export default function RevealPage() {
                           {para}
                         </p>
                       ))}
+
+                      {s.courtPersonaNote && (
+                        <div className="rounded-2xl border border-aura-gold/25 bg-aura-gold/8 px-4 py-3 text-xs leading-relaxed text-moondim sm:text-sm">
+                          <span className="font-display mr-2 inline-flex items-center gap-1 rounded-full border border-aura-gold/35 bg-aura-gold/15 px-2.5 py-0.5 text-[11px] font-semibold text-aura-gold">
+                            <AuraIcon name="users" className="h-3 w-3" />
+                            {t('reveal.courtPersonaBadge')}
+                          </span>
+                          <span>{s.courtPersonaNote}</span>
+                        </div>
+                      )}
                     </div>
                   </motion.article>
                 ))}
               </div>
             </section>
+
+            {/* Mysterious Shadow Card (Bottom of the Deck / Subconscious Voice) */}
+            <ShadowCardSection
+              shadow={activeShadow}
+              revealed={shadowRevealed}
+              onReveal={() => setShadowRevealed(true)}
+            />
+
+            {/* Interactive Clarifier Card (1 optional follow-up draw from remaining deck) */}
+            <ClarifierSection
+              topic={activeView?.topic ?? 'general'}
+              subTag={activeView?.subTag}
+              pool={clarifierPool}
+              clarifier={activeClarifier}
+              onPickClarifier={handlePickClarifier}
+            />
 
             {/* Advice */}
             <section className="rounded-3xl border border-aura-teal/20 bg-aura-teal/5 p-6">

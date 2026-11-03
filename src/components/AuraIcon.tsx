@@ -104,6 +104,19 @@ export const ICON_PATHS = {
       <path d="M15.8 4.5a2.1 2.1 0 0 1 3 3L8.3 18l-4.3 1 1-4.3L15.8 4.5Z" />
     </>
   ),
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.5v2.3M12 19.2v2.3M4.2 12H2M22 12h-2.2M5.8 5.8l1.6 1.6M16.6 16.6l1.6 1.6M18.2 5.8l-1.6 1.6M7.4 16.6l-1.6 1.6" />
+    </>
+  ),
+  alchemy: (
+    <>
+      <circle cx="9.2" cy="12" r="5.5" />
+      <circle cx="14.8" cy="12" r="5.5" />
+      <path d="M12 7.4v9.2" />
+    </>
+  ),
 } as const;
 
 export type AuraIconName = keyof typeof ICON_PATHS;

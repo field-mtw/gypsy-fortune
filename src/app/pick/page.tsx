@@ -94,6 +94,18 @@ function PickPageInner() {
       picks: selected,
       reversed: Object.fromEntries(selected.map((id) => [id, reversedMap[id] ?? false])),
       order: deck.map((c) => c.id),
+      shadowCard: (() => {
+        const remaining = deck.filter((c) => !selected.includes(c.id));
+        const bottom = remaining[remaining.length - 1];
+        return bottom ? { id: bottom.id, reversed: reversedMap[bottom.id] ?? false } : undefined;
+      })(),
+      clarifierPool: (() => {
+        const remaining = deck.filter((c) => !selected.includes(c.id));
+        return remaining.slice(-4, -1).map((c) => ({
+          id: c.id,
+          reversed: reversedMap[c.id] ?? false,
+        }));
+      })(),
       profileDone: false,
     });
     router.push('/confirm');
