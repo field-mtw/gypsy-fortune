@@ -5,22 +5,17 @@ import { initReactI18next } from 'react-i18next';
 import th from './locales/th.json';
 import en from './locales/en.json';
 
-const LANG_KEY = 'aura-tarot-lang';
-
-function detectLang(): string {
-  if (typeof window === 'undefined') return 'th';
-  const saved = window.localStorage.getItem(LANG_KEY);
-  if (saved === 'th' || saved === 'en') return saved;
-  return 'th';
-}
+export const LANG_STORAGE_KEY = 'aura-tarot-lang';
 
 if (!i18next.isInitialized) {
+  // Always start with 'th' on both server and initial client hydration so HTML matches;
+  // I18nProvider syncs any saved user preference from localStorage after mount.
   i18next.use(initReactI18next).init({
     resources: {
       th: { translation: th },
       en: { translation: en },
     },
-    lng: detectLang(),
+    lng: 'th',
     fallbackLng: 'th',
     interpolation: { escapeValue: false },
     react: { useSuspense: false },
@@ -28,8 +23,10 @@ if (!i18next.isInitialized) {
 
   i18next.on('languageChanged', (lng) => {
     try {
-      window.localStorage.setItem(LANG_KEY, lng);
-      document.documentElement.lang = lng === 'th' ? 'th' : 'en';
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(LANG_STORAGE_KEY, lng);
+        document.documentElement.lang = lng === 'en' ? 'en' : 'th';
+      }
     } catch {
       /* storage unavailable */
     }

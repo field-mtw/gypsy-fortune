@@ -28,8 +28,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="th" className={`${prompt.variable} ${ibmPlexSansThai.variable}`}>
-      <body className="aurora-bg font-body antialiased">
+    <html
+      lang="th"
+      className={`${prompt.variable} ${ibmPlexSansThai.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="aurora-bg font-body antialiased" suppressHydrationWarning>
         <I18nProvider>
           <Starfield />
           <Header />

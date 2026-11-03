@@ -10,7 +10,7 @@ import { getCardById, CARD_BACK_IMAGE } from '@/data/cards';
 import { getSpread } from '@/data/spreads';
 import { generateReading, type DrawnCard, type Reading } from '@/lib/reading-engine';
 import { loadSession, clearSession } from '@/lib/session';
-import { loadProfile, saveReading, type ReadingRecord } from '@/lib/storage';
+import { loadProfile, saveReading, type ReadingRecord, type UserProfile } from '@/lib/storage';
 
 function FlipCard({
   image,
@@ -70,6 +70,14 @@ export default function RevealPage() {
   const [category, setCategory] = useState('past-present-future');
   const [flipped, setFlipped] = useState<boolean[]>([]);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [activeTopicIdx, setActiveTopicIdx] = useState(0);
+  const [profile, setProfile] = useState<UserProfile>({
+    name: '',
+    birthdate: '',
+    question: '',
+    topics: [],
+    subTags: {},
+  });
 
   useEffect(() => {
     const s = loadSession();
@@ -90,6 +98,7 @@ export default function RevealPage() {
         };
       })
       .filter((x): x is DrawnCard => x !== null);
+    setProfile(loadProfile());
     setDrawn(cards);
     setSeed(s.seed);
     setLevel(s.level);
@@ -97,7 +106,6 @@ export default function RevealPage() {
     setFlipped(new Array(cards.length).fill(false));
   }, [router]);
 
-  const profile = useMemo(() => loadProfile(), []);
   const reading: Reading | null = useMemo(() => {
     if (!drawn) return null;
     const spread = getSpread(level, category as 'past-present-future');
@@ -144,11 +152,33 @@ export default function RevealPage() {
         ? 'grid-cols-3 max-w-xl'
         : 'grid-cols-3 sm:grid-cols-5 max-w-3xl';
 
+  const hasMultiTopics = reading.topicViews.length > 1;
+  const activeView = reading.topicViews[activeTopicIdx] ?? reading.topicViews[0];
+  const activeSections = activeView ? activeView.sections : reading.sections;
+
   return (
     <div className="py-10">
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="text-center">
         <h1 className="font-display text-2xl font-semibold text-moon sm:text-3xl">{t('reveal.title')}</h1>
-        <p className="mt-2 text-sm text-moondim">{reading.hook}</p>
+        <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-moondim">{reading.hook}</p>
+
+        {/* Selected Focus Badges */}
+        {reading.topicViews.length > 0 && reading.topicViews[0].topic !== 'general' && (
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            {reading.topicViews.map((tv) => (
+              <span
+                key={tv.topic}
+                className="inline-flex items-center gap-1.5 rounded-full border border-aura-violet/30 bg-aura-violet/10 px-3.5 py-1 text-xs text-moon"
+              >
+                <AuraIcon name={tv.icon} className="h-3.5 w-3.5 text-aura-teal" />
+                <span>
+                  {tv.topicLabel}
+                  {tv.subTagLabel ? ` · ${tv.subTagLabel}` : ''}
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
       </motion.div>
 
       {/* Cards */}
@@ -178,6 +208,9 @@ export default function RevealPage() {
                   <p className="font-display text-sm font-semibold text-moon">
                     {lang === 'th' ? d.card.nameTh : d.card.nameEn}
                   </p>
+                  {lang === 'th' && d.card.subtitleTh && (
+                    <p className="mt-0.5 text-[11px] text-aura-violet/90">{d.card.subtitleTh}</p>
+                  )}
                   <p className="mt-0.5 text-xs text-moonfaint">
                     {d.position.nameTh && lang === 'th' ? d.position.nameTh : d.position.nameEn}
                     {' · '}
@@ -220,7 +253,7 @@ export default function RevealPage() {
               className="glass rounded-3xl p-7 text-center"
             >
               <p className="text-xs tracking-[0.25em] text-aura-teal uppercase">{t('reveal.summaryLabel')}</p>
-              <p className="font-display text-glow mt-3 text-xl leading-relaxed font-medium text-moon sm:text-2xl">
+              <p className="font-display text-glow mt-3 text-lg leading-relaxed font-medium text-moon sm:text-xl">
                 {reading.headline}
               </p>
             </motion.section>
@@ -235,19 +268,54 @@ export default function RevealPage() {
               </section>
             )}
 
-            {/* Card by card */}
+            {/* Card by card + Topic Switcher when 2 topics are chosen */}
             <section>
-              <h2 className="font-display mb-4 text-lg font-semibold text-aura-violet">
-                {t('reveal.cardByCardLabel')}
-              </h2>
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="font-display text-lg font-semibold text-aura-violet">
+                  {t('reveal.cardByCardLabel')}
+                </h2>
+
+                {hasMultiTopics && (
+                  <div className="inline-flex flex-wrap gap-1.5 rounded-2xl border border-white/10 bg-abyss/80 p-1.5">
+                    {reading.topicViews.map((tv, idx) => {
+                      const active = idx === activeTopicIdx;
+                      return (
+                        <button
+                          key={tv.topic}
+                          type="button"
+                          onClick={() => setActiveTopicIdx(idx)}
+                          aria-pressed={active}
+                          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium transition-all ${
+                            active
+                              ? 'bg-aura-violet/30 text-moon shadow-[0_0_16px_rgba(167,139,250,0.3)]'
+                              : 'text-moondim hover:text-moon'
+                          }`}
+                        >
+                          <AuraIcon name={tv.icon} className="h-3.5 w-3.5 text-aura-teal" />
+                          <span>
+                            {tv.topicLabel}
+                            {tv.subTagLabel ? ` (${tv.subTagLabel})` : ''}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {hasMultiTopics && activeView && (
+                <p className="mb-4 rounded-2xl border border-aura-violet/20 bg-aura-violet/8 px-4 py-3 text-xs leading-relaxed text-moondim">
+                  {activeView.headline}
+                </p>
+              )}
+
               <div className="space-y-4">
-                {reading.sections.map((s, i) => (
+                {activeSections.map((s) => (
                   <motion.article
-                    key={s.cardId}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: '-40px' }}
-                    transition={{ duration: 0.5 }}
+                    key={`${activeView?.topic ?? 'main'}-${s.cardId}`}
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35 }}
                     className="glass overflow-hidden rounded-3xl"
                   >
                     <div className="flex gap-4 p-5 sm:p-6">
@@ -256,22 +324,38 @@ export default function RevealPage() {
                         alt={s.cardName}
                         draggable={false}
                         className="aspect-[2/3] w-16 shrink-0 rounded-lg border border-white/10 object-cover select-none sm:w-20"
-                        style={drawn[i].reversed ? { transform: 'rotate(180deg)' } : undefined}
+                        style={s.reversed ? { transform: 'rotate(180deg)' } : undefined}
                       />
                       <div className="min-w-0">
                         <p className="text-xs text-aura-teal">{s.positionName}</p>
-                        <h3 className="font-display mt-0.5 text-base font-semibold text-moon">
-                          {s.cardName}
-                          <span className="ml-2 text-xs font-normal text-moonfaint">
-                            {drawn[i].reversed ? t('reveal.reversed') : t('reveal.upright')}
+                        <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                          <h3 className="font-display text-base font-semibold text-moon">{s.cardName}</h3>
+                          {s.cardSubtitle && (
+                            <span className="text-xs text-aura-violet/90">· {s.cardSubtitle}</span>
+                          )}
+                          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-moonfaint">
+                            {s.reversed ? t('reveal.reversed') : t('reveal.upright')}
                           </span>
-                        </h3>
-                        <p className="font-display mt-2 text-sm font-medium text-aura-rose">{s.oneLiner}</p>
+                        </div>
+                        <p className="font-display mt-2 text-sm leading-relaxed font-medium text-aura-rose">
+                          {s.oneLiner}
+                        </p>
                       </div>
                     </div>
-                    <p className="border-t border-white/5 px-5 py-4 text-sm leading-loose text-moondim sm:px-6">
-                      {s.detail}
-                    </p>
+                    <div className="space-y-3 border-t border-white/5 px-5 py-4 text-sm leading-loose sm:px-6">
+                      {s.detailParagraphs.map((para, pIdx) => (
+                        <p
+                          key={pIdx}
+                          className={
+                            pIdx === 0
+                              ? 'text-moon/90'
+                              : 'border-l-2 border-aura-violet/35 pl-3.5 text-moondim'
+                          }
+                        >
+                          {para}
+                        </p>
+                      ))}
+                    </div>
                   </motion.article>
                 ))}
               </div>
@@ -308,7 +392,7 @@ export default function RevealPage() {
                   <div className="rounded-3xl border border-white/8 bg-abyss/60 p-6">
                     <h2 className="font-display mb-2 flex items-center gap-2 text-base font-semibold text-aura-rose">
                       <AuraIcon name="spark" className="h-4 w-4" />
-                      {lang === 'th' ? 'เกร็ดเฉพาะคุณ' : 'Just for you'}
+                      {lang === 'th' ? 'เกร็ดเสริมกำลังใจเฉพาะคุณ' : 'Just for you'}
                     </h2>
                     <p className="text-sm leading-relaxed text-moondim">{reading.personalNote}</p>
                   </div>

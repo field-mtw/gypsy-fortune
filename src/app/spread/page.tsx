@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import AuraIcon from '@/components/AuraIcon';
 import { SPREAD_CATEGORIES, type SpreadCategory, type SpreadLevel } from '@/data/spreads';
-import { getCooldownState, formatCountdown } from '@/lib/cooldown';
+import { getCooldownState, formatCountdown, type CooldownState } from '@/lib/cooldown';
 
 type Step = 'level' | 'category';
 
@@ -24,7 +24,13 @@ function SpreadPageInner() {
   const [level, setLevel] = useState<SpreadLevel | null>(initialLevel);
   const [category, setCategory] = useState<SpreadCategory | null>(null);
   const [gateDismissed, setGateDismissed] = useState(false);
-  const [cooldown, setCooldown] = useState(() => getCooldownState());
+  const [cooldown, setCooldown] = useState<CooldownState>({
+    readingsThisMonth: 0,
+    daysSinceLast: null,
+    suggestWait: false,
+    nextAvailableAt: null,
+    lastReadingAt: null,
+  });
 
   useEffect(() => {
     setCooldown(getCooldownState());

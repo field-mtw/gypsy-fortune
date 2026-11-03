@@ -1,5 +1,4 @@
-// Spread definitions — locked per research (Appendix A).
-// Celtic Cross uses the modern label set, consistently across the app.
+// Spread definitions — 1-card, 3-card (5 life categories), and 10-card Celtic Cross.
 
 export interface SpreadPosition {
   id: string;
@@ -39,9 +38,9 @@ export const SINGLE_SPREAD: SpreadDef = {
   positions: [
     P(
       'theme',
-      'คำตอบ / ธีม',
+      'คำตอบหลักของเรื่องนี้',
       'The answer / theme',
-      'ไพ่ใบนี้คือคำตอบของคำถาม หรือธีมหลักของวันนี้',
+      'ไพ่ใบนี้สะท้อนคำตอบของเรื่องที่อยู่ในใจ หรือพลังงานสำคัญของคุณในวันนี้',
       'This card is the answer to your question, or the theme of today',
     ),
   ],
@@ -53,9 +52,9 @@ const THREE_CARD_SPREADS: Record<SpreadCategory, SpreadDef> = {
     category: 'past-present-future',
     cardCount: 3,
     positions: [
-      P('past', 'อดีต', 'The past', 'สิ่งที่หล่อหลอมสถานการณ์มาจนถึงวันนี้', 'What shaped the situation up to today'),
-      P('present', 'ปัจจุบัน', 'The present', 'สภาพที่เป็นอยู่ตอนนี้ — ใบที่น้ำหนักมากที่สุด', 'The state of things right now — the heaviest card'),
-      P('future', 'อนาคต', 'The future', 'แนวโน้มถ้าพลังงานยังเป็นแบบนี้ — ทิศทางที่เป็นไปได้ ไม่ใช่ชะตาตายตัว', 'The likely direction if the energy stays — a possible trend, not fixed fate'),
+      P('past', 'อดีตที่ผ่านมา', 'The past', 'ที่มาและเรื่องราวที่หล่อหลอมสถานการณ์มาจนถึงวันนี้', 'What shaped the situation up to today'),
+      P('present', 'สถานการณ์ปัจจุบัน', 'The present', 'สิ่งที่กำลังเกิดขึ้นจริงในตอนนี้ และจุดสำคัญที่สุดของเรื่อง', 'The state of things right now — the heaviest card'),
+      P('future', 'แนวโน้มข้างหน้า', 'The future', 'ทิศทางที่จะเกิดขึ้นต่อหากพลังงานยังเดินไปในจังหวะเดิม', 'The likely direction if the energy stays — a possible trend, not fixed fate'),
     ],
   },
   love: {
@@ -63,9 +62,9 @@ const THREE_CARD_SPREADS: Record<SpreadCategory, SpreadDef> = {
     category: 'love',
     cardCount: 3,
     positions: [
-      P('you', 'คุณ', 'You', 'ความรู้สึกและสถานะของคุณในความสัมพันธ์ตอนนี้', 'Your feelings and standing in the relationship right now'),
-      P('other', 'อีกฝ่าย', 'The other person', 'ท่าทีของเขาที่คุณสังเกตได้จากพฤติกรรม', 'Their observable attitude and behavior toward you'),
-      P('dynamic', 'แนวโน้มความสัมพันธ์', 'Relationship trend', 'พลวัตระหว่างกันสองคน และทิศทางที่เป็นไปได้', 'The dynamic between you two and where it may head'),
+      P('you', 'ความรู้สึกของคุณ', 'You', 'ความรู้สึกและจุดยืนในใจของคุณต่อความสัมพันธ์นี้', 'Your feelings and standing in the relationship right now'),
+      P('other', 'ท่าทีของอีกฝ่าย', 'The other person', 'ท่าทีและการแสดงออกของเขาที่คุณสัมผัสได้ในตอนนี้', 'Their observable attitude and behavior toward you'),
+      P('dynamic', 'แนวโน้มความสัมพันธ์', 'Relationship trend', 'บรรยากาศระหว่างคุณสองคนและทิศทางที่กำลังจะพัฒนาต่อไป', 'The dynamic between you two and where it may head'),
     ],
   },
   money: {
@@ -73,9 +72,9 @@ const THREE_CARD_SPREADS: Record<SpreadCategory, SpreadDef> = {
     category: 'money',
     cardCount: 3,
     positions: [
-      P('foundation', 'รากฐานการเงิน', 'Financial foundation', 'อดีตและนิสัยการเงินที่พาคุณมาถึงจุดนี้', 'The past habits that brought your finances here'),
-      P('state', 'สถานะปัจจุบัน', 'Current state', 'ภาพการเงินที่เป็นจริงตอนนี้', 'The honest picture of your finances right now'),
-      P('next', 'คำแนะนำ / ก้าวต่อไป', 'Guidance / next step', 'สิ่งที่ควรทำต่อไป — ไม่ใช่คำตอบว่าจะรวยเมื่อไหร่', 'What to do next — not a promise of when wealth arrives'),
+      P('foundation', 'พื้นฐานการเงินที่ผ่านมา', 'Financial foundation', 'พฤติกรรมการใช้เงินและที่มาที่พาสภาพคล่องมาถึงจุดนี้', 'The past habits that brought your finances here'),
+      P('state', 'การเงินในตอนนี้', 'Current state', 'ภาพรวมรายรับรายจ่ายและความคล่องตัวที่เป็นอยู่จริง', 'The honest picture of your finances right now'),
+      P('next', 'แนวทางจัดการการเงิน', 'Guidance / next step', 'ก้าวต่อไปที่ควรทำเพื่อให้การเงินมั่นคงและสบายใจขึ้น', 'What to do next — not a promise of when wealth arrives'),
     ],
   },
   career: {
@@ -83,9 +82,9 @@ const THREE_CARD_SPREADS: Record<SpreadCategory, SpreadDef> = {
     category: 'career',
     cardCount: 3,
     positions: [
-      P('role', 'ตำแหน่งปัจจุบัน', 'Current role', 'จุดที่คุณยืนอยู่ในงานตอนนี้', 'Where you stand at work right now'),
-      P('challenge', 'อุปสรรค / บทเรียนหลัก', 'Challenge / key lesson', 'สิ่งที่ขวางอยู่ หรือสิ่งที่ต้องเรียนรู้', 'What blocks you, or what you need to learn'),
-      P('step', 'ก้าวต่อไปที่ดีที่สุด', 'Best next step', 'แอ็กชันที่ควรทำต่อไป', 'The action most worth taking next'),
+      P('role', 'สถานการณ์งานตอนนี้', 'Current role', 'จุดที่คุณยืนอยู่และบรรยากาศการทำงานในปัจจุบัน', 'Where you stand at work right now'),
+      P('challenge', 'โจทย์ท้าทายและบทเรียน', 'Challenge / key lesson', 'สิ่งที่กำลังทดสอบคุณ หรือจุดที่ต้องก้าวข้ามให้ได้', 'What blocks you, or what you need to learn'),
+      P('step', 'ก้าวต่อไปที่ควรทำ', 'Best next step', 'แนวทางลงมือทำที่จะช่วยให้เรื่องงานเดินหน้าได้ดีที่สุด', 'The action most worth taking next'),
     ],
   },
   fortune: {
@@ -93,9 +92,9 @@ const THREE_CARD_SPREADS: Record<SpreadCategory, SpreadDef> = {
     category: 'fortune',
     cardCount: 3,
     positions: [
-      P('past', 'อดีต', 'The past', 'พื้นพลังและบทเรียนที่ติดตัวมา', 'The ground you stand on and the lessons you carry'),
-      P('present', 'ปัจจุบัน', 'The present', 'จังหวะชีวิตของคุณตอนนี้', 'The rhythm of your life right now'),
-      P('trend', 'แนวโน้ม', 'The trend', 'ทิศทางที่ชีวิตกำลังมุ่งไป', 'The direction your life is heading'),
+      P('past', 'พื้นดวงและสิ่งที่สั่งสมมา', 'The past', 'ต้นทุนชีวิตและบทเรียนที่ติดตัวคุณมาถึงปัจจุบัน', 'The ground you stand on and the lessons you carry'),
+      P('present', 'จังหวะชีวิตตอนนี้', 'The present', 'พลังงานหลักที่กำลังหมุนเวียนอยู่ในชีวิตคุณช่วงนี้', 'The rhythm of your life right now'),
+      P('trend', 'ทิศทางดวงข้างหน้า', 'The trend', 'แนวโน้มจังหวะชีวิตที่กำลังค่อยๆ เปิดทางรออยู่', 'The direction your life is heading'),
     ],
   },
 };
@@ -105,16 +104,16 @@ export const CELTIC_CROSS_SPREAD: SpreadDef = {
   category: 'celtic-cross',
   cardCount: 10,
   positions: [
-    P('present', 'ประเด็นหลัก (ปัจจุบัน)', 'Heart of the matter', 'ใจกลางของคำถาม สิ่งที่เกิดขึ้นตอนนี้', 'The heart of the question, what is happening now'),
-    P('challenge', 'สิ่งที่ขวาง', 'The challenge', 'อุปสรรคหรือปัจจัยที่ขัดหรือเสริมประเด็นหลัก', 'What crosses or supports the heart of the matter'),
-    P('past', 'อดีต / รากฐาน', 'Past / foundation', 'อดีตที่ผ่านมา รากเหตุที่พามาถึงจุดนี้', 'The past behind you, the roots of the situation'),
-    P('future', 'อนาคตอันใกล้', 'Near future', 'สิ่งที่กำลังก่อตัว กำลังจะมาถึง', 'What is forming and on its way'),
-    P('crown', 'เป้าหมาย / สิ่งที่มุ่งหวัง', 'Crown / goal', 'เป้าหมายที่ตั้งใจไว้ ผลลัพธ์ที่ดีที่สุดที่เป็นไปได้', 'Your aim, the best possible outcome'),
-    P('root', 'รากลึก / จิตใต้สำนึก', 'Root / subconscious', 'แรงขับที่ซ่อนอยู่ ความรู้สึกที่ไม่ได้พูดออกมา', 'Hidden drives, unspoken feelings'),
-    P('advice', 'คำแนะนำ / ท่าทีของเรา', 'Advice / approach', 'วิธีรับมือที่ควรใช้ ทัศนคติที่นำมาสู่เรื่องนี้', 'How to approach this, the attitude you bring'),
-    P('external', 'ปัจจัยภายนอก', 'External influences', 'คนรอบข้าง เหตุการณ์ และสิ่งแวดล้อมที่ควบคุมไม่ได้', 'People around you and forces beyond control'),
-    P('hopes', 'ความหวังและความกลัว', 'Hopes and fears', 'สิ่งที่หวังลึกๆ และสิ่งที่กลัว — มักเป็นสองด้านของเรื่องเดียวกัน', 'Deep hopes and fears — often two sides of one coin'),
-    P('outcome', 'บทสรุป', 'Outcome', 'ทิศทางบทสรุปถ้าทุกอย่างดำเนินแบบนี้ต่อไป', 'Where things head if everything continues as is'),
+    P('present', 'หัวใจของเรื่องในตอนนี้', 'Heart of the matter', 'แกนกลางของคำถามและสิ่งที่กำลังเกิดขึ้นจริงตรงหน้า', 'The heart of the question, what is happening now'),
+    P('challenge', 'โจทย์ที่เข้ามาท้าทาย', 'The challenge', 'อุปสรรคหรือประเด็นสำคัญที่เข้ามาทดสอบเรื่องนี้', 'What crosses or supports the heart of the matter'),
+    P('past', 'รากฐานจากอดีต', 'Past / foundation', 'เหตุการณ์ก่อนหน้าที่เป็นต้นตอพามาถึงจุดปัจจุบัน', 'The past behind you, the roots of the situation'),
+    P('future', 'จังหวะที่กำลังจะเข้ามา', 'Near future', 'เรื่องราวระยะใกล้ที่กำลังก่อตัวและขยับเข้ามาหา', 'What is forming and on its way'),
+    P('crown', 'เป้าหมายที่มุ่งหวัง', 'Crown / goal', 'ภาพผลลัพธ์ที่คุณตั้งใจและอยากเห็นมากที่สุด', 'Your aim, the best possible outcome'),
+    P('root', 'ความรู้สึกส่วนลึกในใจ', 'Root / subconscious', 'แรงขับลึกๆ หรือความรู้สึกในใจที่ไม่ค่อยได้พูดออกมา', 'Hidden drives, unspoken feelings'),
+    P('advice', 'ท่าทีและแนวทางรับมือ', 'Advice / approach', 'มุมมองและวิธีวางตัวที่ไพ่อยากแนะนำให้ใช้กับเรื่องนี้', 'How to approach this, the attitude you bring'),
+    P('external', 'คนรอบข้างและปัจจัยภายนอก', 'External influences', 'บรรยากาศรอบตัว คำพูดคนอื่น หรือเหตุการณ์ที่อยู่เหนือการควบคุม', 'People around you and forces beyond control'),
+    P('hopes', 'ความหวังและความกังวลลึกๆ', 'Hopes and fears', 'สิ่งที่แอบหวังไว้ในใจควบคู่กับสิ่งที่ยังแอบกลัว', 'Deep hopes and fears — often two sides of one coin'),
+    P('outcome', 'บทสรุปและแนวโน้มปลายทาง', 'Outcome', 'ภาพปลายทางของเรื่องนี้หากทุกอย่างยังเดินไปตามจังหวะปัจจุบัน', 'Where things head if everything continues as is'),
   ],
 };
 

@@ -4,7 +4,7 @@
  * Hand-drawn aura line icons (thin 1.5px strokes). No emoji, no generic
  * icon sets — every icon below is drawn for this app's theme.
  */
-const PATHS: Record<string, React.ReactNode> = {
+export const ICON_PATHS = {
   spark: (
     <>
       <path d="M12 2c.7 4.8 2.4 7.6 5 9.2 2.6 1.7 5.4 2.3 9 2.8-3.6.5-6.4 1.1-9 2.8-2.6 1.6-4.3 4.4-5 9.2-.7-4.8-2.4-7.6-5-9.2-2.6-1.7-5.4-2.3-9-2.8 3.6-.5 6.4-1.1 9-2.8 2.6-1.6 4.3-4.4 5-9.2Z" />
@@ -56,13 +56,63 @@ const PATHS: Record<string, React.ReactNode> = {
   ),
   feather: <path d="M20 4c-6 0-12 4-13.5 11L4 20l1-2.5C4 10 10 4 20 4ZM7 17c2-4 5-7 9-9" />,
   ring: <circle cx="12" cy="12" r="8.5" />,
-};
+  heart: (
+    <>
+      <path d="M12 20.2s-7-4.4-8.6-8.7C2.1 8 4.4 4.5 7.9 4.5c2 0 3.3 1.1 4.1 2.4.8-1.3 2.1-2.4 4.1-2.4 3.5 0 5.8 3.5 4.5 7-1.6 4.3-8.6 8.7-8.6 8.7Z" />
+    </>
+  ),
+  briefcase: (
+    <>
+      <rect x="3.5" y="7.5" width="17" height="12" rx="2.2" />
+      <path d="M9 7.5V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8v1.7M3.5 12.5h17" />
+    </>
+  ),
+  coin: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 6.8l1.4 3.4 3.6.3-2.7 2.4.8 3.5L12 14.6l-3.1 1.8.8-3.5-2.7-2.4 3.6-.3L12 6.8Z" />
+    </>
+  ),
+  academic: (
+    <>
+      <path d="M2.5 9.5 12 5l9.5 4.5L12 14 2.5 9.5Z" />
+      <path d="M6.5 11.5v4.2c0 1.5 2.5 2.8 5.5 2.8s5.5-1.3 5.5-2.8v-4.2M21.5 9.5v5" />
+    </>
+  ),
+  lotus: (
+    <>
+      <path d="M12 5c2.2 2.8 3 6.2 0 10-3-3.8-2.2-7.2 0-10Z" />
+      <path d="M12 15c2.8-3.2 6.2-4 7.8-2.2.6 3.5-2.4 6.2-7.8 6.2-5.4 0-8.4-2.7-7.8-6.2C5.8 11 9.2 11.8 12 15Z" />
+    </>
+  ),
+  users: (
+    <>
+      <circle cx="9" cy="8.5" r="3" />
+      <path d="M3.8 18.5c.6-2.9 2.7-4.5 5.2-4.5s4.6 1.6 5.2 4.5" />
+      <circle cx="16.2" cy="9.5" r="2.3" />
+      <path d="M15.5 14.3c2.1.2 3.8 1.5 4.4 4.2" />
+    </>
+  ),
+  compass: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="m15.5 8.5-2.1 5.1-5.1 2.1 2.1-5.1 5.1-2.1Z" />
+    </>
+  ),
+  edit: (
+    <>
+      <path d="M15.8 4.5a2.1 2.1 0 0 1 3 3L8.3 18l-4.3 1 1-4.3L15.8 4.5Z" />
+    </>
+  ),
+} as const;
+
+export type AuraIconName = keyof typeof ICON_PATHS;
 
 export default function AuraIcon({
   name,
   className = 'h-5 w-5',
 }: {
-  name: keyof typeof PATHS;
+  name: AuraIconName;
   className?: string;
 }) {
   return (
@@ -76,7 +126,7 @@ export default function AuraIcon({
       className={className}
       aria-hidden="true"
     >
-      {PATHS[name]}
+      {ICON_PATHS[name]}
     </svg>
   );
 }

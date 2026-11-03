@@ -18,6 +18,7 @@ function JournalDetailInner() {
   const router = useRouter();
   const [record, setRecord] = useState<ReadingRecord | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [activeTopicIdx, setActiveTopicIdx] = useState(0);
 
   useEffect(() => {
     const id = params.id as string;
@@ -58,6 +59,10 @@ function JournalDetailInner() {
     return <p className="py-24 text-center text-moondim">{t('common.loading')}</p>;
   }
 
+  const hasMultiTopics = reading.topicViews.length > 1;
+  const activeView = reading.topicViews[activeTopicIdx] ?? reading.topicViews[0];
+  const activeSections = activeView ? activeView.sections : reading.sections;
+
   return (
     <div className="mx-auto max-w-3xl py-10">
       <button
@@ -71,10 +76,34 @@ function JournalDetailInner() {
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
         <p className="text-xs text-moonfaint">
           {new Date(record.createdAt).toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US', {
-            year: 'numeric', month: 'long', day: 'numeric',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
           })}
         </p>
-        <h1 className="font-display text-glow mt-2 text-2xl leading-relaxed font-semibold text-moon">
+
+        {reading.topicViews.length > 0 && reading.topicViews[0].topic !== 'general' ? (
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {reading.topicViews.map((tv) => (
+              <span
+                key={tv.topic}
+                className="inline-flex items-center gap-1.5 rounded-full border border-aura-violet/30 bg-aura-violet/10 px-3 py-1 text-xs text-moon"
+              >
+                <AuraIcon name={tv.icon} className="h-3.5 w-3.5 text-aura-teal" />
+                <span>
+                  {tv.topicLabel}
+                  {tv.subTagLabel ? ` · ${tv.subTagLabel}` : ''}
+                </span>
+              </span>
+            ))}
+          </div>
+        ) : (
+          record.profile.question && (
+            <p className="mt-1.5 text-sm text-aura-teal">“{record.profile.question}”</p>
+          )
+        )}
+
+        <h1 className="font-display text-glow mt-3 text-xl leading-relaxed font-semibold text-moon sm:text-2xl">
           {reading.headline}
         </h1>
       </motion.div>
@@ -87,23 +116,83 @@ function JournalDetailInner() {
       )}
 
       <section className="mt-8">
-        <h2 className="font-display mb-4 text-lg font-semibold text-aura-violet">{t('reveal.cardByCardLabel')}</h2>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-display text-lg font-semibold text-aura-violet">{t('reveal.cardByCardLabel')}</h2>
+
+          {hasMultiTopics && (
+            <div className="inline-flex flex-wrap gap-1.5 rounded-2xl border border-white/10 bg-abyss/80 p-1.5">
+              {reading.topicViews.map((tv, idx) => {
+                const active = idx === activeTopicIdx;
+                return (
+                  <button
+                    key={tv.topic}
+                    type="button"
+                    onClick={() => setActiveTopicIdx(idx)}
+                    aria-pressed={active}
+                    className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium transition-all ${
+                      active
+                        ? 'bg-aura-violet/30 text-moon shadow-[0_0_16px_rgba(167,139,250,0.3)]'
+                        : 'text-moondim hover:text-moon'
+                    }`}
+                  >
+                    <AuraIcon name={tv.icon} className="h-3.5 w-3.5 text-aura-teal" />
+                    <span>
+                      {tv.topicLabel}
+                      {tv.subTagLabel ? ` (${tv.subTagLabel})` : ''}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {hasMultiTopics && activeView && (
+          <p className="mb-4 rounded-2xl border border-aura-violet/20 bg-aura-violet/8 px-4 py-3 text-xs leading-relaxed text-moondim">
+            {activeView.headline}
+          </p>
+        )}
+
         <div className="space-y-4">
-          {reading.sections.map((s) => (
-            <article key={s.cardId} className="glass overflow-hidden rounded-3xl">
-              <div className="flex gap-4 p-5">
+          {activeSections.map((s) => (
+            <article key={`${activeView?.topic ?? 'main'}-${s.cardId}`} className="glass overflow-hidden rounded-3xl">
+              <div className="flex gap-4 p-5 sm:p-6">
                 <img
                   src={s.image}
                   alt={s.cardName}
-                  className="aspect-[2/3] w-16 shrink-0 rounded-lg border border-white/10 object-cover"
+                  className="aspect-[2/3] w-16 shrink-0 rounded-lg border border-white/10 object-cover sm:w-20"
+                  style={s.reversed ? { transform: 'rotate(180deg)' } : undefined}
                 />
                 <div className="min-w-0">
                   <p className="text-xs text-aura-teal">{s.positionName}</p>
-                  <h3 className="font-display mt-0.5 text-base font-semibold text-moon">{s.cardName}</h3>
-                  <p className="font-display mt-2 text-sm font-medium text-aura-rose">{s.oneLiner}</p>
+                  <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <h3 className="font-display text-base font-semibold text-moon">{s.cardName}</h3>
+                    {s.cardSubtitle && (
+                      <span className="text-xs text-aura-violet/90">· {s.cardSubtitle}</span>
+                    )}
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-moonfaint">
+                      {s.reversed ? t('reveal.reversed') : t('reveal.upright')}
+                    </span>
+                  </div>
+                  <p className="font-display mt-2 text-sm leading-relaxed font-medium text-aura-rose">
+                    {s.oneLiner}
+                  </p>
                 </div>
               </div>
-              <p className="border-t border-white/5 px-5 py-4 text-sm leading-loose text-moondim">{s.detail}</p>
+              <div className="space-y-3 border-t border-white/5 px-5 py-4 text-sm leading-loose sm:px-6">
+                {s.detailParagraphs.map((para, pIdx) => (
+                  <p
+                    key={pIdx}
+                    className={
+                      pIdx === 0
+                        ? 'text-moon/90'
+                        : 'border-l-2 border-aura-violet/35 pl-3.5 text-moondim'
+                    }
+                  >
+                    {para}
+                  </p>
+                ))}
+              </div>
             </article>
           ))}
         </div>
@@ -114,17 +203,35 @@ function JournalDetailInner() {
         <ul className="space-y-2.5">
           {reading.advice.map((a, i) => (
             <li key={i} className="flex gap-2.5 text-sm leading-relaxed text-moondim">
-              <span className="mt-0.5 shrink-0 text-aura-teal"><AuraIcon name="check" className="h-4 w-4" /></span>
+              <span className="mt-0.5 shrink-0 text-aura-teal">
+                <AuraIcon name="check" className="h-4 w-4" />
+              </span>
               {a}
             </li>
           ))}
         </ul>
       </section>
 
-      {reading.timing && (
-        <section className="mt-6 rounded-3xl border border-white/8 bg-abyss/60 p-6">
-          <h2 className="font-display mb-2 text-base font-semibold text-aura-gold">{t('reveal.timingLabel')}</h2>
-          <p className="text-sm leading-relaxed text-moondim">{reading.timing}</p>
+      {(reading.timing || reading.personalNote) && (
+        <section className="mt-6 grid gap-4 sm:grid-cols-2">
+          {reading.timing && (
+            <div className="rounded-3xl border border-white/8 bg-abyss/60 p-6">
+              <h2 className="font-display mb-2 flex items-center gap-2 text-base font-semibold text-aura-gold">
+                <AuraIcon name="clock" className="h-4 w-4" />
+                {t('reveal.timingLabel')}
+              </h2>
+              <p className="text-sm leading-relaxed text-moondim">{reading.timing}</p>
+            </div>
+          )}
+          {reading.personalNote && (
+            <div className="rounded-3xl border border-white/8 bg-abyss/60 p-6">
+              <h2 className="font-display mb-2 flex items-center gap-2 text-base font-semibold text-aura-rose">
+                <AuraIcon name="spark" className="h-4 w-4" />
+                {lang === 'th' ? 'เกร็ดเสริมกำลังใจเฉพาะคุณ' : 'Just for you'}
+              </h2>
+              <p className="text-sm leading-relaxed text-moondim">{reading.personalNote}</p>
+            </div>
+          )}
         </section>
       )}
 

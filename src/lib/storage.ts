@@ -1,9 +1,17 @@
 // Local-first persistence. Everything stays in the user's browser.
 
+import type { SelectableTopic } from '@/data/card-types';
+import type { FocusSubTag } from '@/data/focus-topics';
+
 export interface UserProfile {
   name: string;
   birthdate: string; // YYYY-MM-DD
+  /** Human-readable focus summary (or legacy free-text question for older saved journal entries) */
   question: string;
+  /** Up to 2 selected main categories for the reading */
+  topics?: SelectableTopic[];
+  /** At most 1 selected situational sub-tag per selected category */
+  subTags?: Partial<Record<SelectableTopic, FocusSubTag>>;
 }
 
 export type AccuracyMark = 'yes' | 'partial' | 'no' | null;
@@ -40,12 +48,23 @@ function safeParse<T>(raw: string | null, fallback: T): T {
 }
 
 export function loadProfile(): UserProfile {
-  if (typeof window === 'undefined') return { name: '', birthdate: '', question: '' };
-  return safeParse<UserProfile>(window.localStorage.getItem(PROFILE_KEY), {
+  if (typeof window === 'undefined') {
+    return { name: '', birthdate: '', question: '', topics: [], subTags: {} };
+  }
+  const parsed = safeParse<UserProfile>(window.localStorage.getItem(PROFILE_KEY), {
     name: '',
     birthdate: '',
     question: '',
+    topics: [],
+    subTags: {},
   });
+  return {
+    name: parsed.name ?? '',
+    birthdate: parsed.birthdate ?? '',
+    question: parsed.question ?? '',
+    topics: Array.isArray(parsed.topics) ? parsed.topics : [],
+    subTags: parsed.subTags && typeof parsed.subTags === 'object' ? parsed.subTags : {},
+  };
 }
 
 export function saveProfile(p: UserProfile) {
